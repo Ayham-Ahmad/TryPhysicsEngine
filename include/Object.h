@@ -1,7 +1,7 @@
 #pragma once
 #include <SDL3/SDL.h>
 
-#include "Utility.h"
+#include "shapes.h"
 
 struct Particle {
     Shape s;

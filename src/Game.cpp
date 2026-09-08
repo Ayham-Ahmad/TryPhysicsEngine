@@ -1,4 +1,4 @@
-#include "Game.h"
+#include "game.h"
 
 // Constructor / Destructor
 Game::Game()
@@ -125,7 +125,7 @@ void Game::render()
     _clear({0, 0, 0, 255});
 
     for (Particle& p : _particles) {
-        p.s.circle(r, p.pos, p.rad, p.res);
+        p.s.shape(r, p.pos, p.rad, p.res);
         showXAndYPosition(r, p.pos.x, p.pos.y, -20);
     }
 

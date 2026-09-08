@@ -1,6 +1,6 @@
-#include "Game.h"
+#include "game.h"
 
-#include "Game.cpp"
+#include "game.cpp"
 
 double deltaTime = 0.0;
 

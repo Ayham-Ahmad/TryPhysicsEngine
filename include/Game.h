@@ -3,13 +3,13 @@
 #include <vector>
 #include <string>
 
-#include "Utility.h"
-#include "Object.h"
+#include "object.h"
 #include "FPSTimer.h"
-#include "Text.h"
-#include "Physics.h"
-#include "Globals.h"
-#include "Colors.h"
+#include "text.h"
+#include "physics.h"
+#include "globals.h"
+#include "colors.h"
+#include "shapes.h"
 
 class Game
 {
