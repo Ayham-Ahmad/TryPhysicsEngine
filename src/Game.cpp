@@ -23,18 +23,24 @@ void Game::init()
     _screenWidth = mode->w;
     _screenHeight = mode->h;
 
+    // _screenWidth = 800;
+    // _screenHeight = 600;
+
     // Create window and
-    window = SDL_CreateWindow("Test", _screenWidth, _screenHeight, SDL_WINDOW_FULLSCREEN);
+    window = SDL_CreateWindow("Test", _screenWidth, _screenHeight, SDL_WINDOW_BORDERLESS);
     r = SDL_CreateRenderer(window, nullptr);
 
-    // for (int i = 0; i < 10; i++) {
-    //     Particle p;
-    //     p.obj.affectedByGravity = true;
-    //     p.rad = 10;
-    //     p.obj.x0 = _screenWidth/2 + ((p.rad + 20)  * 2 * i);
-    //     p.obj.y0 = _screenHeight/2;
-    //     particles.push_back(p);
-    // }
+    for (int i = 0; i < _pc; i++) {
+        Particle p;
+        p.rad = 50;
+        p.res = 3 + i;
+        _particles.push_back(p);
+    }
+
+    Particle circle;
+    circle.rad = 50;
+    circle.res = 100;
+    _particles.push_back(circle);
 }
 
 // --- FPS Handling ---
@@ -101,18 +107,14 @@ void Game::handleInput()
 // --- update ---
 void Game::update()
 {
-    // for (Particle& p : particles) {
-    //     p.obj.x = _applyPhysics.getFinalPosition(0, p.obj.vx0, p.obj.x0, p.obj.totalTime);
-    //     p.obj.y = _applyPhysics.getFinalPosition(GRAVITY, p.obj.vy0, p.obj.y0, p.obj.totalTime);
-
-    //     std::cout << p.obj.vx0 << " "
-    //               << p.obj.vy0 << " "
-    //               << p.obj.x0 << " "
-    //               << p.obj.y0 << " "
-    //               << p.obj.y << " "
-    //               << p.obj.x << " "
-    //               << p.obj.totalTime << "\n";
-    // }
+    int i = 0;
+    for (Particle& p : _particles) {
+        int spaceing = p.rad * 2;
+        int c = _screenWidth/2.0f - spaceing * (_pc/2);
+        p.pos.x = c + i * spaceing;
+        p.pos.y = _screenHeight/2.0f;
+        i++;
+    }
 
     _updateFPS();
 }
@@ -122,11 +124,12 @@ void Game::render()
 {
     _clear({0, 0, 0, 255});
 
-    // SDL_SetRenderDrawColor(r, 100, 255, 90, 255);
-    // for (Particle& p : particles) {
-    //     p.Circle.render(r, p.obj.x, p.obj.y, p.rad);
-    //     showXAndYPosition(r, p.obj.x, p.obj.y, -20);
-    // }
+    for (Particle& p : _particles) {
+        p.s.circle(r, p.pos, p.rad, p.res);
+        showXAndYPosition(r, p.pos.x, p.pos.y, -20);
+    }
+
+    // s.triangle(r, {500, 400}, {480, 550}, {520, 550}, _colors.BlueF());
 
     showXAndYPosition(r, mouseX, mouseY);
 

@@ -4,6 +4,9 @@
 #include "Utility.h"
 
 struct Particle {
-    CircleRenderer Circle;
+    Shape s;
     float rad;
+    float res;
+
+    SDL_FPoint pos;
 };

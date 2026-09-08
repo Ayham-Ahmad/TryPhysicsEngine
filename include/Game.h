@@ -9,14 +9,13 @@
 #include "Text.h"
 #include "Physics.h"
 #include "Globals.h"
+#include "Colors.h"
 
 class Game
 {
 public:
     SDL_Window *window = nullptr;
     SDL_Renderer *r = nullptr;
-
-    std::vector<Particle> particles;
 
     Game();
     ~Game();
@@ -60,4 +59,11 @@ private:
 
     void _updateFPS();
     void _showFPS();
+
+    // --- Vars ---
+private:
+    Shape s;
+    Colors _colors;
+    std::vector<Particle> _particles;
+    int16_t _pc = 10;
 };
