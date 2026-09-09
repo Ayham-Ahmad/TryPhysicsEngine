@@ -3,20 +3,27 @@
 
 #include "shapes.h"
 #include "random.h"
+#include "physics.h"
+
+struct RigidBody {
+    SDL_FPoint position;
+    SDL_FPoint velocity = {0, 0};
+    SDL_FPoint acceleration = {0, 0};
+
+    float mass = 1.0f;
+
+    Physics2D physics2D;
+};
 
 struct ParticleObject
 {
     Shape s;
     float radius;
     float resolution;
-    float mass = 10.0f;
+    
+    RigidBody rigidBody;
 
     SDL_FColor color;
-
-    SDL_FPoint position;
-    SDL_FPoint velocity = {0, 0};
-    SDL_FPoint acceleration = {0, 0};
-
     SDL_Rect bounds{};
 };
 

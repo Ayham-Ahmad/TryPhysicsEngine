@@ -24,7 +24,7 @@ public:
 
     void init();
 
-    Timer<60> timer;
+    Timer<600> timer;
 
 public:
     // Core game loop functions

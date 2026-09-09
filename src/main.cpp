@@ -4,6 +4,7 @@
 #include "panel.cpp"
 #include "particle.cpp"
 #include "collision.cpp"
+#include "physics.cpp"
 
 double deltaTime = 0.0;
 

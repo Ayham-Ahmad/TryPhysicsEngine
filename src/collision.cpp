@@ -1,44 +1,43 @@
 #include "collision.h"
 
 // Check collision with the screen
-void Collision::collide(ParticleObject &p, float sh, float sw)
+void Collision::checkCollisionBwteenObjAndScreen(ParticleObject &p, float sh, float sw)
 {
     // Vertical collision
-    if (p.position.y + p.radius > sh)
+    if (p.rigidBody.position.y + p.radius > sh)
     {
-        p.position.y = sh - p.radius;
+        p.rigidBody.position.y = sh - p.radius;
 
-        if (p.velocity.y > 0.0f)
-            p.velocity.y *= -coefficientOfRestitution;
+        if (p.rigidBody.velocity.y > 0.0f)
+            p.rigidBody.velocity.y *= -coefficientOfRestitution;
     }
-    else if (p.position.y - p.radius < 0.0f)
+    else if (p.rigidBody.position.y - p.radius < 0.0f)
     {
-        p.position.y = p.radius;
+        p.rigidBody.position.y = p.radius;
 
-        if (p.velocity.y < 0.0f)
-            p.velocity.y *= -coefficientOfRestitution;
+        if (p.rigidBody.velocity.y < 0.0f)
+            p.rigidBody.velocity.y *= -coefficientOfRestitution;
     }
 
     // Horizontal collision
-    if (p.position.x + p.radius > sw)
+    if (p.rigidBody.position.x + p.radius > sw)
     {
-        p.position.x = sw - p.radius;
+        p.rigidBody.position.x = sw - p.radius;
 
-        if (p.velocity.x > 0.0f)
-            p.velocity.x *= -coefficientOfRestitution;
+        if (p.rigidBody.velocity.x > 0.0f)
+            p.rigidBody.velocity.x *= -coefficientOfRestitution;
     }
-    else if (p.position.x - p.radius < 0.0f)
+    else if (p.rigidBody.position.x - p.radius < 0.0f)
     {
-        p.position.x = p.radius;
+        p.rigidBody.position.x = p.radius;
 
-        if (p.velocity.x < 0.0f)
-            p.velocity.x *= -coefficientOfRestitution;
+        if (p.rigidBody.velocity.x < 0.0f)
+            p.rigidBody.velocity.x *= -coefficientOfRestitution;
     }
 }
 
 // Check collision between particles
-void Collision::objCollide(
-    std::vector<ParticleObject> &particles)
+void Collision::checkCollisionBetweenObjs(std::vector<ParticleObject> &particles)
 {
     // Check every pair of particles
     for (size_t i = 0; i < particles.size(); ++i)
@@ -50,73 +49,70 @@ void Collision::objCollide(
 
             // Calculate the difference between the positions
             SDL_FPoint difference =
-                {
-                    b.position.x - a.position.x,
-                    b.position.y - a.position.y};
+                a.rigidBody.physics2D.getDifferenceVectorBetweenTwoObjects(
+                    a.rigidBody.position,
+                    b.rigidBody.position);
 
             // Check if the particles are colliding
             if (!Collision::collideTest(a, b, difference))
                 continue;
 
             // Calculate the distance between the particles
-            float distance = std::sqrt(
-                difference.x * difference.x +
-                difference.y * difference.y);
+            float distance = a.rigidBody.physics2D.magnitude(difference);
 
             // Avoid division by zero
             if (distance == 0.0f)
                 continue;
 
             // Calculate the collision normal
-            SDL_FPoint normal =
-                {
-                    difference.x / distance,
-                    difference.y / distance};
+            SDL_FPoint normal = a.rigidBody.physics2D.normalize(difference, distance);
 
             // Calculate the overlap
-            float overlap = (a.radius + b.radius) - distance;
+            float overlap = a.rigidBody.physics2D.getOverlapBetweenTwoObjects(a.radius, b.radius, distance);
 
             // Move the particles apart
-            a.position.x -= normal.x * overlap * 0.5f;
-            a.position.y -= normal.y * overlap * 0.5f;
+            a.rigidBody.position.x -= normal.x * overlap * 0.5f;
+            a.rigidBody.position.y -= normal.y * overlap * 0.5f;
 
-            b.position.x += normal.x * overlap * 0.5f;
-            b.position.y += normal.y * overlap * 0.5f;
+            b.rigidBody.position.x += normal.x * overlap * 0.5f;
+            b.rigidBody.position.y += normal.y * overlap * 0.5f;
 
             // Calculate relative velocity
             SDL_FPoint relativeVelocity =
-                {
-                    b.velocity.x - a.velocity.x,
-                    b.velocity.y - a.velocity.y};
+                a.rigidBody.physics2D.getRelativeVelocityBetweenTwoObjects(
+                    a.rigidBody.velocity,
+                    b.rigidBody.velocity);
 
             // Calculate velocity along the collision normal
             float velocityAlongNormal =
-                relativeVelocity.x * normal.x +
-                relativeVelocity.y * normal.y;
+                a.rigidBody.physics2D.getVelocityAlongCollisionNormal(
+                    relativeVelocity,
+                    normal);
 
             // Objects are already moving away from each other
             if (velocityAlongNormal > 0.0f)
                 continue;
 
             // Calculate the collision impulse
-            float impulseMagnitude =
-                -((1.0f + coefficientOfRestitution) *
-                  velocityAlongNormal) /
-                ((1.0f / a.mass) + (1.0f / b.mass));
+            float impulseMagnitude = a.rigidBody.physics2D.getCollisionImpulseMagnitude(
+                coefficientOfRestitution,
+                velocityAlongNormal,
+                a.rigidBody.mass,
+                b.rigidBody.mass);
 
             // Calculate the impulse vector
             SDL_FPoint impulse =
-                {
-                    normal.x * impulseMagnitude,
-                    normal.y * impulseMagnitude};
+                a.rigidBody.physics2D.getCollisionImpulseVector(
+                    normal,
+                    impulseMagnitude);
 
             // Apply the impulse to the first particle
-            a.velocity.x -= impulse.x / a.mass;
-            a.velocity.y -= impulse.y / a.mass;
+            a.rigidBody.velocity.x -= impulse.x / a.rigidBody.mass;
+            a.rigidBody.velocity.y -= impulse.y / a.rigidBody.mass;
 
             // Apply the impulse to the second particle
-            b.velocity.x += impulse.x / b.mass;
-            b.velocity.y += impulse.y / b.mass;
+            b.rigidBody.velocity.x += impulse.x / b.rigidBody.mass;
+            b.rigidBody.velocity.y += impulse.y / b.rigidBody.mass;
         }
     }
 }
@@ -129,8 +125,7 @@ bool Collision::collideTest(
 {
     // Calculate the squared distance
     float distanceSquared =
-        difference.x * difference.x +
-        difference.y * difference.y;
+        a.rigidBody.physics2D.squaredMagnitude(difference);
 
     // Calculate the sum of the radii
     float radiusSum = a.radius + b.radius;

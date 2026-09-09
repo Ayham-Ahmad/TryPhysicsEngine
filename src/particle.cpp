@@ -26,8 +26,8 @@ const void Particle::initParticles(
         int col = i % _particlesPerRow;
 
         // Set the particle position
-        p.position.x = _startX + col * _spacing;
-        p.position.y = _startY + row * _spacing;
+        p.rigidBody.position.x = _startX + col * _spacing;
+        p.rigidBody.position.y = _startY + row * _spacing;
 
         // Set a random color
         p.color = {randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1};
@@ -41,27 +41,27 @@ const void Particle::updateParticles(float gravity, float resolution)
     for (ParticleObject &p : _particles)
     {
         // Set acceleration
-        p.acceleration.y = gravity;
+        p.rigidBody.acceleration.y = gravity;
         // p.acceleration.x = randomInt(-accelerationRandomNumber, accelerationRandomNumber);
-        p.acceleration.x = gravity;
+        p.rigidBody.acceleration.x = gravity;
 
         // Set the particle resolution
         p.resolution = resolution;
 
         // Update velocity
-        p.velocity.y += p.acceleration.y * deltaTime;
-        p.velocity.x += p.acceleration.x * deltaTime;
+        p.rigidBody.velocity.y += p.rigidBody.acceleration.y * deltaTime;
+        p.rigidBody.velocity.x += p.rigidBody.acceleration.x * deltaTime;
 
         // Update position
-        p.position.x += p.velocity.x * deltaTime;
-        p.position.y += p.velocity.y * deltaTime;
+        p.rigidBody.position.x += p.rigidBody.velocity.x * deltaTime;
+        p.rigidBody.position.y += p.rigidBody.velocity.y * deltaTime;
 
         // Check collision with the screen
-        _collision.collide(p, _screenHeight, _screenwidth);
+        _collision.checkCollisionBwteenObjAndScreen(p, _screenHeight, _screenwidth);
     }
 
     // Check collision between particles
-    _collision.objCollide(_particles);
+    _collision.checkCollisionBetweenObjs(_particles);
 }
 
 const void Particle::renderParticles(SDL_Renderer *r)
@@ -69,6 +69,6 @@ const void Particle::renderParticles(SDL_Renderer *r)
     // Render each particle
     for (ParticleObject &p : _particles)
     {
-        p.s.shape(r, p.position, p.radius, p.resolution, p.color);
+        p.s.shape(r, p.rigidBody.position, p.radius, p.resolution, p.color);
     }
 }
