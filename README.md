@@ -22,5 +22,5 @@ The third step adds collisions between particles and the screen boundaries.
 
 ## Libraries
 
-- SDL3: window creation, rendering, input, and geometry drawing.
-- SDL3_ttf: TrueType font support for on-screen text.
+- [SDL3](https://github.com/libsdl-org/SDL): window creation, rendering, input, and geometry drawing.
+- [SDL3_ttf](https://github.com/libsdl-org/SDL_ttf): TrueType font support for on-screen te
