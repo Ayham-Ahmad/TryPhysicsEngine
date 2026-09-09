@@ -37,7 +37,7 @@ void Game::init()
     _panel.init(mode->w);
 
     // Particles counter
-    _pc = 100;
+    _pc = 20;
 
     // Initialze particles
     _particles.initParticles(_pc, _screenWidth, _screenHeight);
