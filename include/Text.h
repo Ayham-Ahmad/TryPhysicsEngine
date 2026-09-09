@@ -3,7 +3,7 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <string>
 
-// --- Draw text using a string ---
+// Draw text using a string
 inline void drawText(SDL_Renderer *r,
                      const std::string &text,
                      float x = 100.0f, float y = 100.0f,
@@ -12,13 +12,16 @@ inline void drawText(SDL_Renderer *r,
                      SDL_Color color = {255, 255, 255, 255},
                      const std::string &fontPath = "assets/Roboto-Medium.ttf")
 {
+    // Check if renderer or text is invalid
     if (!r || text.empty())
         return;
 
+    // Load the font
     TTF_Font *font = TTF_OpenFont(fontPath.c_str(), fontSize);
     if (!font)
         return;
 
+    // Create a surface from the text
     SDL_Surface *surface = TTF_RenderText_Blended(font, text.c_str(), text.length(), color);
     if (!surface)
     {
@@ -26,6 +29,7 @@ inline void drawText(SDL_Renderer *r,
         return;
     }
 
+    // Create a texture from the surface
     SDL_Texture *texture = SDL_CreateTextureFromSurface(r, surface);
     if (!texture)
     {
@@ -34,19 +38,25 @@ inline void drawText(SDL_Renderer *r,
         return;
     }
 
+    // Set the text position and size
     SDL_FRect dst;
     dst.x = x;
     dst.y = y;
     dst.w = (w == 0.0f) ? static_cast<float>(surface->w) : w;
     dst.h = (h == 0.0f) ? static_cast<float>(surface->h) : h;
 
+    // Clean up the surface
     SDL_DestroySurface(surface);
+
+    // Draw the text
     SDL_RenderTexture(r, texture, nullptr, &dst);
+
+    // Clean up the texture and font
     SDL_DestroyTexture(texture);
     TTF_CloseFont(font);
 }
 
-// --- Draw text using a float ---
+// Draw text using a float
 inline void drawText(SDL_Renderer *r,
                      float value,
                      float x = 100.0f, float y = 100.0f,
@@ -58,7 +68,7 @@ inline void drawText(SDL_Renderer *r,
     drawText(r, std::to_string(value), x, y, fontSize, w, h, color, fontPath);
 }
 
-// --- Draw text using an int ---
+// Draw text using an int
 inline void drawText(SDL_Renderer *r,
                      int value,
                      float x = 100.0f, float y = 100.0f,
@@ -70,7 +80,8 @@ inline void drawText(SDL_Renderer *r,
     drawText(r, std::to_string(value), x, y, fontSize, w, h, color, fontPath);
 }
 
-inline void showXAndYPosition(SDL_Renderer *r, float &x, float &y, int xAdjustment = -10, int yAdjustment = -20)
+// Show the X and Y position
+inline void showXAndYPosition(SDL_Renderer *r, float &x, float &y, int xAdjustment = 0, int yAdjustment = -20)
 {
     drawText(
         r,

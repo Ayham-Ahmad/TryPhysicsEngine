@@ -1,12 +1,13 @@
 #include "game.h"
 
-// Constructor / Destructor
+// Constructor
 Game::Game()
 {
     SDL_Init(SDL_INIT_VIDEO);
     TTF_Init();
 }
 
+// Destructor
 Game::~Game()
 {
     SDL_DestroyRenderer(r);
@@ -15,32 +16,31 @@ Game::~Game()
     SDL_Quit();
 }
 
+// Initialize
 void Game::init()
 {
+    // Get Display ID and mode
     SDL_DisplayID displayID = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(displayID);
 
-    _screenWidth = mode->w;
-    _screenHeight = mode->h;
+    // Get screen dimansions
+    // _screenWidth = mode->w;
+    // _screenHeight = mode->h;
+    _screenWidth = 800;
+    _screenHeight = 600;
 
-    // _screenWidth = 800;
-    // _screenHeight = 600;
-
-    // Create window and
+    // Create window and renderer
     window = SDL_CreateWindow("Test", _screenWidth, _screenHeight, SDL_WINDOW_BORDERLESS);
     r = SDL_CreateRenderer(window, nullptr);
 
-    for (int i = 0; i < _pc; i++) {
-        Particle p;
-        p.rad = 50;
-        p.res = 3 + i;
-        _particles.push_back(p);
-    }
+    // Initialze the contorl panel
+    _panel.init(mode->w);
 
-    Particle circle;
-    circle.rad = 50;
-    circle.res = 100;
-    _particles.push_back(circle);
+    // Particles counter
+    _pc = 100;
+
+    // Initialze particles
+    _particles.initParticles(_pc, _screenWidth, _screenHeight);
 }
 
 // --- FPS Handling ---
@@ -72,9 +72,8 @@ void Game::_showFPS()
 }
 
 // --- clear and present ---
-void Game::_clear(SDL_Color color)
-{
-    SDL_SetRenderDrawColor(r, color.r, color.g, color.b, color.a);
+void Game::_clear() {
+    _colors.Black(r);
     SDL_RenderClear(r);
 }
 
@@ -88,6 +87,8 @@ void Game::handleInput()
 {
     while (SDL_PollEvent(&_e))
     {
+        _panel.handleEvent(_e);
+
         // Close window
         if (_e.type == SDL_EVENT_QUIT)
             running = false;
@@ -107,33 +108,39 @@ void Game::handleInput()
 // --- update ---
 void Game::update()
 {
-    int i = 0;
-    for (Particle& p : _particles) {
-        int spaceing = p.rad * 2;
-        int c = _screenWidth/2.0f - spaceing * (_pc/2);
-        p.pos.x = c + i * spaceing;
-        p.pos.y = _screenHeight/2.0f;
-        i++;
+    // Don't update if paused
+    if (_panel.paused())
+    {
+        _updateFPS();
+        return;
     }
 
+    // Getting panel values
+    const float gravity = _panel.value("gravity");
+    const float resolution = _panel.value("resolution");
+
+    // Update particles
+    _particles.updateParticles(gravity, resolution);
+
+    // Update FPS
     _updateFPS();
 }
 
 // --- render ---
 void Game::render()
 {
-    _clear({0, 0, 0, 255});
+    // Clear the background
+    _clear();
 
-    for (Particle& p : _particles) {
-        p.s.shape(r, p.pos, p.rad, p.res);
-        showXAndYPosition(r, p.pos.x, p.pos.y, -20);
-    }
+    // Render the particles
+    _particles.renderParticles(r);
 
-    // s.triangle(r, {500, 400}, {480, 550}, {520, 550}, _colors.BlueF());
+    // Render the panel
+    _panel.render();
 
-    showXAndYPosition(r, mouseX, mouseY);
-
+    // Render the FPS counter
     _showFPS();
 
+    // Render everything
     _present();
 }

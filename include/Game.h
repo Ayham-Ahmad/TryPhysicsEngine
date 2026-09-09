@@ -3,13 +3,15 @@
 #include <vector>
 #include <string>
 
-#include "object.h"
+#include "particle.h"
 #include "FPSTimer.h"
 #include "text.h"
 #include "physics.h"
 #include "globals.h"
 #include "colors.h"
 #include "shapes.h"
+#include "panel.h"
+#include "collision.h"
 
 class Game
 {
@@ -32,7 +34,7 @@ public:
 
 private:
     // Clear and present
-    void _clear(SDL_Color color = {0, 0, 0, 255});
+    void _clear();
     void _present();
 
     // Event
@@ -64,6 +66,8 @@ private:
 private:
     Shape s;
     Colors _colors;
-    std::vector<Particle> _particles;
-    int16_t _pc = 10;
+    Panel _panel;
+    Particle _particles;
+
+    int16_t _pc;
 };

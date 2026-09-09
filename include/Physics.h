@@ -2,27 +2,27 @@
 #include <cmath>
 #include <algorithm>
 
-#include "Object.h"
-#include "Globals.h"
+#include "particle.h"
+#include "globals.h"
 
 class Physics2D
 {
 public:
-    float getFinalPosition(float a, float v, float p, float t)
+    float getFinalPosition(float acceleration, float velocity, float position, float time)
     {
-        float x = 0.5 * a * pow(t, 2) + v * t + p;
+        float x = 0.5 * acceleration * pow(time, 2) + velocity * time + position;
 
         return x;
     }
 
-    float getTotalTimeUntilFinalPostion(float i, float x, float v, float a)
+    float getTotalTimeUntilFinalPostion(float initialPosition, float finalPosition, float velocity, float acceleration)
     {
-        float discriminant = v * v - 2 * a * (i - x);
+        float discriminant = velocity * velocity - 2 * acceleration * (initialPosition - finalPosition);
         if (discriminant < 0)
             return NAN; // no real solution
 
-        float t1 = (-v + sqrt(discriminant)) / a;
-        float t2 = (-v - sqrt(discriminant)) / a;
+        float t1 = (-velocity + sqrt(discriminant)) / acceleration;
+        float t2 = (-velocity - sqrt(discriminant)) / acceleration;
 
         if (t1 >= 0 && t2 >= 0)
             return std::min(t1, t2);
@@ -82,5 +82,4 @@ public:
     // {
     //     obj.y += obj.vy * deltaTime;
     // }
-
 };

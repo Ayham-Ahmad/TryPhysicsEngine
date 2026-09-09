@@ -6,97 +6,136 @@
 
 #include "Globals.h"
 
-
-class Shape {
+class Shape
+{
 public:
-    static void triangle(
-        SDL_Renderer *r,
-        const SDL_FPoint &a,
-        const SDL_FPoint &b,
-        const SDL_FPoint &c,
-        const SDL_FColor &color)
-    {
-        SDL_Vertex v[3] = {
-            {b, color, {0, 0}},
-            {a, color, {0, 0}},
-            {c, color, {0, 0}}};
+    // static void triangle(
+    //     SDL_Renderer *r,
+    //     const SDL_FPoint &a,
+    //     const SDL_FPoint &b,
+    //     const SDL_FPoint &c,
+    //     const SDL_FColor &color)
+    // {
+    //     SDL_Vertex vertices[3] = {
+    //         {b, color, {0, 0}},
+    //         {a, color, {0, 0}},
+    //         {c, color, {0, 0}}};
 
-        SDL_RenderGeometry(r, nullptr, v, 3, nullptr, 0);
-    }
+    //     SDL_RenderGeometry(r, nullptr, vertices, 3, nullptr, 0);
+    // }
 
+    // Draw a shape
     static void shape(
-        SDL_Renderer *r, const SDL_FPoint &p,
-        const float rad, const int8_t res,
+        SDL_Renderer *r, const SDL_FPoint &position,
+        const float radius, const int8_t resolution,
         const SDL_FColor &color = {1.0f, 1.0f, 1.0f, 1.0f})
     {
-        if (res <= 0)
+        // Check if the resolution is valid
+        if (resolution < 3)
             return;
 
-        const auto &points = getShapePoints(res);
+        // Get the cached shape points
+        const auto &points = getShapePoints(resolution);
 
-        for (int i = 0; i < res; ++i)
+        // Create the vertices and indices
+        std::vector<SDL_Vertex> vertices(resolution + 1);
+        std::vector<int> indices(resolution * 3);
+
+        // Set the center vertex
+        vertices[0] = {position, color, {0, 0}};
+
+        // Set the outer vertices
+        for (int i = 0; i < resolution; ++i)
         {
-            const int next = (i + 1) % res;
-            const SDL_FPoint a = {
-                p.x + points[i].x * rad,
-                p.y + points[i].y * rad};
-            const SDL_FPoint b = {
-                p.x + points[next].x * rad,
-                p.y + points[next].y * rad};
-
-            triangle(r, p, a, b, color);
+            vertices[i + 1] = {
+                {
+                    position.x + points[i].x * radius,
+                    position.y + points[i].y * radius
+                },
+                color,
+                {0, 0}
+            };
         }
-    }
 
+        // Create the triangles
+        for (int i = 0; i < resolution; ++i) {
+            const int next = (i + 1) % resolution;
+
+            indices[i * 3 + 0] = 0;
+            indices[i * 3 + 1] = i + 1;
+            indices[i * 3 + 2] = next + 1;
+        }
+
+        // Draw the shape
+        SDL_RenderGeometry(
+            r, nullptr, vertices.data(),
+            static_cast<int>(vertices.size()),
+            indices.data(),
+            static_cast<int>(indices.size())
+        );
+    }
 
     // Source - https://stackoverflow.com/a/48291620
     // Posted by Scotty Stephens, modified by community. See post 'Timeline' for change history
     // Retrieved 2026-09-08, License - CC BY-SA 4.0
 
-    static void emptyCircle(SDL_Renderer *r, int16_t cx, int16_t cy, int16_t rad)
+    // Draw an empty circle
+    static void emptyCircle(SDL_Renderer *r, int16_t cx, int16_t cy, int16_t radius)
     {
-        if (rad <= 0)
+        // Check if the radius is valid
+        if (radius <= 0)
             return;
 
-        const auto &points = getCircleOutlinePoints(rad);
+        // Get the cached circle points
+        const auto &points = getCircleOutlinePoints(radius);
 
+        // Draw each point
         for (const SDL_FPoint &point : points)
             SDL_RenderPoint(r, cx + point.x, cy + point.y);
     }
 
 private:
-    static const std::vector<SDL_FPoint> &getShapePoints(int res)
+    // Get cached shape points
+    static const std::vector<SDL_FPoint> &getShapePoints(int resolution)
     {
-        auto cached = shapeCache.find(res);
+        // Check if the points are already cached
+        auto cached = shapeCache.find(resolution);
         if (cached != shapeCache.end())
             return cached->second;
 
+        // Create the shape points
         std::vector<SDL_FPoint> points;
-        points.reserve(res);
+        points.reserve(resolution);
 
-        for (int i = 0; i < res; ++i)
+        // Calculate each point around the shape
+        for (int i = 0; i < resolution; ++i)
         {
-            const float angle = 2.0f * PI * i / res;
+            const float angle = 2.0f * PI * i / resolution;
             points.push_back({std::cos(angle), std::sin(angle)});
         }
 
-        return shapeCache.emplace(res, std::move(points)).first->second;
+        // Store the points in the cache
+        return shapeCache.emplace(resolution, std::move(points)).first->second;
     }
 
-    static const std::vector<SDL_FPoint> &getCircleOutlinePoints(int16_t rad)
+    // Get cached circle outline points
+    static const std::vector<SDL_FPoint> &getCircleOutlinePoints(int16_t radius)
     {
-        auto cached = circleOutlineCache.find(rad);
+        // Check if the points are already cached
+        auto cached = circleOutlineCache.find(radius);
         if (cached != circleOutlineCache.end())
             return cached->second;
 
+        // Create the circle points
         std::vector<SDL_FPoint> points;
-        const int16_t diameter = rad * 2;
-        int16_t x = rad - 1;
+        const int16_t diameter = radius * 2;
+        int16_t x = radius - 1;
         int16_t y = 0;
         int16_t tx = 1;
         int16_t ty = 1;
         int16_t error = tx - diameter;
 
+        // Calculate the circle outline
         while (x >= y)
         {
             points.push_back({static_cast<float>(x), static_cast<float>(-y)});
@@ -108,6 +147,7 @@ private:
             points.push_back({static_cast<float>(-y), static_cast<float>(-x)});
             points.push_back({static_cast<float>(-y), static_cast<float>(x)});
 
+            // Update the Y position
             if (error <= 0)
             {
                 ++y;
@@ -115,6 +155,7 @@ private:
                 ty += 2;
             }
 
+            // Update the X position
             if (error > 0)
             {
                 --x;
@@ -123,9 +164,13 @@ private:
             }
         }
 
-        return circleOutlineCache.emplace(rad, std::move(points)).first->second;
+        // Store the points in the cache
+        return circleOutlineCache.emplace(radius, std::move(points)).first->second;
     }
 
+    // Store cached shape points
     inline static std::unordered_map<int, std::vector<SDL_FPoint>> shapeCache;
+
+    // Store cached circle points
     inline static std::unordered_map<int, std::vector<SDL_FPoint>> circleOutlineCache;
 };
