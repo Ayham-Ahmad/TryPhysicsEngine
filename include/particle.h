@@ -4,8 +4,10 @@
 #include "shapes.h"
 #include "random.h"
 #include "physics.h"
+#include "colors.h"
 
-struct RigidBody {
+struct RigidBody
+{
     SDL_FPoint position;
     SDL_FPoint velocity = {0, 0};
     SDL_FPoint acceleration = {0, 0};
@@ -20,7 +22,7 @@ struct ParticleObject
     Shape s;
     float radius;
     float resolution;
-    
+
     RigidBody rigidBody;
 
     SDL_FColor color;
@@ -37,14 +39,15 @@ private:
     int _spacing = 25;
     int _startX, _startY;
 
-    int _screenwidth, _screenHeight;
-
     std::vector<ParticleObject> _particles;
 
     Collision _collision;
+    Colors _colors;
 
 public:
-    const void initParticles(const int16_t particlesCounter, const int sw, const int sh);
-    const void updateParticles(float gravity, float resolution);
-    const void renderParticles(SDL_Renderer *r);
+    void initParticles();
+    void updateParticles(const double simulationDeltaTime);
+    void renderParticles(SDL_Renderer *r);
+    const std::vector<ParticleObject> &getParticlesList() const;
+    void simulateEarthAndMoon(const int sw, const int sh);
 };

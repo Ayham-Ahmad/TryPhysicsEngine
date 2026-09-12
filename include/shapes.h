@@ -110,7 +110,7 @@ private:
         // Calculate each point around the shape
         for (int i = 0; i < resolution; ++i)
         {
-            const float angle = 2.0f * PI * i / resolution;
+            const float angle = 2.0f * Globals::pi * i / resolution;
             points.push_back({std::cos(angle), std::sin(angle)});
         }
 

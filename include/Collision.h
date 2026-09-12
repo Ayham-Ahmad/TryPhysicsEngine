@@ -9,7 +9,7 @@ class Collision
 {
 public:
     // Check collision with the screen
-    static void checkCollisionBwteenObjAndScreen(ParticleObject &p, float sh, float sw);
+    static void checkCollisionBwteenObjAndScreen(ParticleObject &p);
 
     // Check collision between particles
     static void checkCollisionBetweenObjs(std::vector<ParticleObject> &particles);

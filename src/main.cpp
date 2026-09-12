@@ -5,15 +5,15 @@
 #include "particle.cpp"
 #include "collision.cpp"
 #include "physics.cpp"
+#include "grid.cpp"
 
 double deltaTime = 0.0;
 
 int main()
 {
     // Main object
-    Game game;
     // Initialize the main window
-    game.init();
+    Game game;
 
     // Initialize timer
     game.NOW = SDL_GetPerformanceCounter();
@@ -27,14 +27,14 @@ int main()
         // Update the timer
         game.LAST = game.NOW;
         game.NOW = SDL_GetPerformanceCounter();
-        deltaTime = (double)((game.NOW - game.LAST) / (double)SDL_GetPerformanceFrequency());
+        Globals::deltaTime = (double)((game.NOW - game.LAST) / (double)SDL_GetPerformanceFrequency());
 
         // Main functions
         game.handleInput();
         game.update();
         game.render();
 
-        // Keep it at 60 FPS
+        // Keep it at N FPS
         game.timer.sleep();
     }
 

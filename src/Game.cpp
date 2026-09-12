@@ -5,6 +5,23 @@ Game::Game()
 {
     SDL_Init(SDL_INIT_VIDEO);
     TTF_Init();
+
+    // Get Display ID and mode
+    SDL_DisplayID displayID = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(displayID);
+
+    // Get screen dimansions
+    Globals::sw = mode->w;
+    Globals::sh = mode->h;
+    // _screenWidth = 800;
+    // _screenHeight = 600;
+
+    // Create window and renderer
+    window = SDL_CreateWindow("Test", Globals::sw, Globals::sh, SDL_WINDOW_BORDERLESS);
+    r = SDL_CreateRenderer(window, nullptr);
+
+    // Initialze the contorl panel
+    _panel.init(mode->w);
 }
 
 // Destructor
@@ -19,36 +36,24 @@ Game::~Game()
 // Initialize
 void Game::init()
 {
-    // Get Display ID and mode
-    SDL_DisplayID displayID = SDL_GetPrimaryDisplay();
-    const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(displayID);
-
-    // Get screen dimansions
-    // _screenWidth = mode->w;
-    // _screenHeight = mode->h;
-    _screenWidth = 800;
-    _screenHeight = 600;
-
-    // Create window and renderer
-    window = SDL_CreateWindow("Test", _screenWidth, _screenHeight, SDL_WINDOW_BORDERLESS);
-    r = SDL_CreateRenderer(window, nullptr);
-
-    // Initialze the contorl panel
-    _panel.init(mode->w);
-
-    // Particles counter
-    _pc = 100;
+    Globals::particlesCount = _panel.value("count");
+    Globals::particlesSpacing = _panel.value("spacing");
+    Globals::particleSize = _panel.value("size");
+    Globals::gridSize = _panel.value("gridSize");
 
     // Initialze particles
-    _particles.initParticles(_pc, _screenWidth, _screenHeight);
+    _particles.initParticles();
+
+    // Initialze grid
+    _grid.initialize();
 }
 
 // --- FPS Handling ---
 void Game::_updateFPS()
 {
     _fpsCounter++;
-    _fpsTimer += deltaTime;
-    _fpsDisplayTimer += deltaTime;
+    _fpsTimer += Globals::deltaTime;
+    _fpsDisplayTimer += Globals::deltaTime;
 
     // Calculate FPS once per second
     if (_fpsTimer >= 1.0)
@@ -66,17 +71,20 @@ void Game::_updateFPS()
     }
 }
 
+// --- Display the FPS on the screen ---
 void Game::_showFPS()
 {
     drawText(r, "FPS: " + std::to_string(_displayedFPS), 10, 10, 25);
 }
 
 // --- clear and present ---
-void Game::_clear() {
+void Game::_clear()
+{
     _colors.Black(r);
     SDL_RenderClear(r);
 }
 
+// --- Show to the screen ---
 void Game::_present()
 {
     SDL_RenderPresent(r);
@@ -108,19 +116,32 @@ void Game::handleInput()
 // --- update ---
 void Game::update()
 {
+    Globals::grid = _panel.buttonValue("grid");
+
+    if (!_panel.buttonValue("start"))
+    {
+        _updateFPS();
+        init();
+        return;
+    }
+
     // Don't update if paused
-    if (_panel.paused())
+    if (_panel.buttonValue("pause"))
     {
         _updateFPS();
         return;
     }
 
     // Getting panel values
-    const float gravity = _panel.value("gravity");
-    const float resolution = _panel.value("resolution");
+    const double simulationDeltaTime = Globals::deltaTime * _panel.value("speed");
+    Globals::gravity = _panel.value("gravity");
 
     // Update particles
-    _particles.updateParticles(gravity, resolution);
+    _particles.updateParticles(simulationDeltaTime);
+
+    // Update grid
+    if (Globals::grid)
+        _grid.update(_particles.getParticlesList());
 
     // Update FPS
     _updateFPS();
@@ -132,11 +153,15 @@ void Game::render()
     // Clear the background
     _clear();
 
+    // Render the Grid
+    if (Globals::grid)
+        _grid.render(r, _panel.buttonValue("start"));
+
     // Render the particles
     _particles.renderParticles(r);
 
     // Render the panel
-    _panel.render();
+    _panel.render(mouseX, mouseY);
 
     // Render the FPS counter
     _showFPS();

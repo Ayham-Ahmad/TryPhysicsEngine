@@ -1,38 +1,38 @@
 #include "collision.h"
 
 // Check collision with the screen
-void Collision::checkCollisionBwteenObjAndScreen(ParticleObject &p, float sh, float sw)
+void Collision::checkCollisionBwteenObjAndScreen(ParticleObject &p)
 {
     // Vertical collision
-    if (p.rigidBody.position.y + p.radius > sh)
+    if (p.rigidBody.position.y + p.radius > Globals::sh)
     {
-        p.rigidBody.position.y = sh - p.radius;
+        p.rigidBody.position.y = Globals::sh - p.radius;
 
         if (p.rigidBody.velocity.y > 0.0f)
-            p.rigidBody.velocity.y *= -coefficientOfRestitution;
+            p.rigidBody.velocity.y *= -Globals::coefficientOfRestitution;
     }
     else if (p.rigidBody.position.y - p.radius < 0.0f)
     {
         p.rigidBody.position.y = p.radius;
 
         if (p.rigidBody.velocity.y < 0.0f)
-            p.rigidBody.velocity.y *= -coefficientOfRestitution;
+            p.rigidBody.velocity.y *= -Globals::coefficientOfRestitution;
     }
 
     // Horizontal collision
-    if (p.rigidBody.position.x + p.radius > sw)
+    if (p.rigidBody.position.x + p.radius > Globals::sw)
     {
-        p.rigidBody.position.x = sw - p.radius;
+        p.rigidBody.position.x = Globals::sw - p.radius;
 
         if (p.rigidBody.velocity.x > 0.0f)
-            p.rigidBody.velocity.x *= -coefficientOfRestitution;
+            p.rigidBody.velocity.x *= -Globals::coefficientOfRestitution;
     }
     else if (p.rigidBody.position.x - p.radius < 0.0f)
     {
         p.rigidBody.position.x = p.radius;
 
         if (p.rigidBody.velocity.x < 0.0f)
-            p.rigidBody.velocity.x *= -coefficientOfRestitution;
+            p.rigidBody.velocity.x *= -Globals::coefficientOfRestitution;
     }
 }
 
@@ -49,23 +49,18 @@ void Collision::checkCollisionBetweenObjs(std::vector<ParticleObject> &particles
 
             // Calculate the difference between the positions
             SDL_FPoint difference =
-                a.rigidBody.physics2D.getDifferenceVectorBetweenTwoObjects(
+                a.rigidBody.physics2D.differenceVector(
                     a.rigidBody.position,
                     b.rigidBody.position);
 
-            // Check if the particles are colliding
-            if (!Collision::collideTest(a, b, difference))
-                continue;
+            float distance = a.rigidBody.physics2D.distance(difference);
+            float radiusSum = a.radius + b.radius;
 
-            // Calculate the distance between the particles
-            float distance = a.rigidBody.physics2D.magnitude(difference);
-
-            // Avoid division by zero
-            if (distance == 0.0f)
+            if (distance > radiusSum || distance == 0.0f)
                 continue;
 
             // Calculate the collision normal
-            SDL_FPoint normal = a.rigidBody.physics2D.normalize(difference, distance);
+            SDL_FPoint normal = a.rigidBody.physics2D.direction(difference, distance);
 
             // Calculate the overlap
             float overlap = a.rigidBody.physics2D.getOverlapBetweenTwoObjects(a.radius, b.radius, distance);
@@ -95,7 +90,7 @@ void Collision::checkCollisionBetweenObjs(std::vector<ParticleObject> &particles
 
             // Calculate the collision impulse
             float impulseMagnitude = a.rigidBody.physics2D.getCollisionImpulseMagnitude(
-                coefficientOfRestitution,
+                Globals::coefficientOfRestitution,
                 velocityAlongNormal,
                 a.rigidBody.mass,
                 b.rigidBody.mass);
@@ -115,21 +110,4 @@ void Collision::checkCollisionBetweenObjs(std::vector<ParticleObject> &particles
             b.rigidBody.velocity.y += impulse.y / b.rigidBody.mass;
         }
     }
-}
-
-// Check if two particles are colliding
-bool Collision::collideTest(
-    ParticleObject &a,
-    ParticleObject &b,
-    SDL_FPoint &difference)
-{
-    // Calculate the squared distance
-    float distanceSquared =
-        a.rigidBody.physics2D.squaredMagnitude(difference);
-
-    // Calculate the sum of the radii
-    float radiusSum = a.radius + b.radius;
-
-    // Check if the particles overlap
-    return distanceSquared <= radiusSum * radiusSum;
 }

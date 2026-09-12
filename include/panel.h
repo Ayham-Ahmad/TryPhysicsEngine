@@ -21,6 +21,16 @@ struct Slider
     float y = 0.0f;
 };
 
+struct Button
+{
+    std::string id;
+    std::string text;
+
+    bool value = false;
+    bool visibility = true;
+    float y = 0.0f;
+};
+
 class Panel
 {
 public:
@@ -28,10 +38,10 @@ public:
 
     void init(float sw);
     void handleEvent(const SDL_Event &event);
-    void render();
+    void render(const float mouseX, const float mouseY);
 
     float value(const std::string &id) const;
-    bool paused() const;
+    bool buttonValue(const std::string &id) const;
 
 private:
     // Panel layout settings
@@ -57,16 +67,20 @@ private:
     static float keepbetween0and1(float value);
     void handleSliderValue(Slider &slider, const SDL_Event &event) const;
     void handleKnobEvent(Slider &slider, const SDL_Event &event) const;
-    void handlePauseEvent(const SDL_Event &event);
+    void handleButtonEvent(const SDL_Event &event);
+    void setValue(const std::string id, bool value);
+    void setVisibility(const std::string id, bool visibility);
+    bool isMouseInRect(const SDL_Event &event, const SDL_FRect &rect) const;
+    bool isMouseHover(const SDL_FRect &rect, const float mouseX, const float mouseY) const;
 
     // Store panel window and renderer
     SDL_Window *window = nullptr;
     SDL_Renderer *r = nullptr;
     SDL_WindowID windowID = 0;
 
-    // Store all sliders
-    std::vector<Slider> sliders;
+    // Store all sliders and buttons
+    std::vector<Slider> _sliders;
+    std::vector<Button> _buttons;
 
-    bool isPaused = true;
     Colors c;
 };

@@ -8,8 +8,8 @@ inline void drawText(SDL_Renderer *r,
                      const std::string &text,
                      float x = 100.0f, float y = 100.0f,
                      int fontSize = 10,
-                     float w = 0.0f, float h = 0.0f,
                      SDL_Color color = {255, 255, 255, 255},
+                     float w = 0.0f, float h = 0.0f,
                      const std::string &fontPath = "assets/Roboto-Medium.ttf")
 {
     // Check if renderer or text is invalid
@@ -65,7 +65,7 @@ inline void drawText(SDL_Renderer *r,
                      SDL_Color color = {255, 255, 255, 255},
                      const std::string &fontPath = "assets/Roboto-Medium.ttf")
 {
-    drawText(r, std::to_string(value), x, y, fontSize, w, h, color, fontPath);
+    drawText(r, std::to_string(value), x, y, fontSize, color, w, h, fontPath);
 }
 
 // Draw text using an int
@@ -77,7 +77,7 @@ inline void drawText(SDL_Renderer *r,
                      SDL_Color color = {255, 255, 255, 255},
                      const std::string &fontPath = "assets/Roboto-Medium.ttf")
 {
-    drawText(r, std::to_string(value), x, y, fontSize, w, h, color, fontPath);
+    drawText(r, std::to_string(value), x, y, fontSize, color, w, h, fontPath);
 }
 
 // Show the X and Y position

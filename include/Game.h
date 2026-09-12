@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 #include <vector>
 #include <string>
+#include <algorithm>
 
 #include "particle.h"
 #include "FPSTimer.h"
@@ -12,6 +13,7 @@
 #include "shapes.h"
 #include "panel.h"
 #include "collision.h"
+#include "grid.h"
 
 class Game
 {
@@ -40,10 +42,6 @@ private:
     // Event
     SDL_Event _e;
 
-    // Screen Dimensions
-    int _screenWidth;
-    int _screenHeight;
-
 public:
     // Quit flag
     bool running = true;
@@ -68,6 +66,5 @@ private:
     Colors _colors;
     Panel _panel;
     Particle _particles;
-
-    int16_t _pc;
+    Grid _grid;
 };

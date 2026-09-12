@@ -1,27 +1,30 @@
 #include "physics.h"
 
-SDL_FPoint Physics2D::getDifferenceVectorBetweenTwoObjects(const SDL_FPoint &firstPosition, const SDL_FPoint &secondPosition)
+// Calculate the difference between the positions
+SDL_FPoint Physics2D::differenceVector(const SDL_FPoint &firstPosition, const SDL_FPoint &secondPosition)
 {
     return {
         secondPosition.x - firstPosition.x,
         secondPosition.y - firstPosition.y};
 }
 
+// Calculate the squared distance
 float Physics2D::squaredMagnitude(const SDL_FPoint &vector)
 {
     return vector.x * vector.x + vector.y * vector.y;
 }
 
-float Physics2D::magnitude(const SDL_FPoint &vector)
+// Calculate the distance between the particles
+float Physics2D::distance(const SDL_FPoint &difference)
 {
-    return std::sqrt(squaredMagnitude(vector));
+    return std::sqrt(squaredMagnitude(difference));
 }
 
-SDL_FPoint Physics2D::normalize(const SDL_FPoint &vector, float vectorMagnitude)
+SDL_FPoint Physics2D::direction(const SDL_FPoint &difference, const float distance)
 {
     return {
-        vector.x / vectorMagnitude,
-        vector.y / vectorMagnitude};
+        difference.x / distance,
+        difference.y / distance};
 }
 
 float Physics2D::getOverlapBetweenTwoObjects(float firstRadius, float secondRadius, float distanceBetweenObjects)
@@ -53,4 +56,23 @@ SDL_FPoint Physics2D::getCollisionImpulseVector(const SDL_FPoint &collisionNorma
     return {
         collisionNormal.x * impulseMagnitude,
         collisionNormal.y * impulseMagnitude};
+}
+
+void Physics2D::applyGforce(ParticleObject &a, const ParticleObject &b)
+{
+    SDL_FPoint difference = a.rigidBody.physics2D.differenceVector(
+        a.rigidBody.position,
+        b.rigidBody.position);
+
+    float distance = a.rigidBody.physics2D.distance(difference);
+
+    if (distance == 0.0f)
+        return;
+
+    SDL_FPoint direction = a.rigidBody.physics2D.direction(difference, distance);
+
+    float acc = (Globals::gravity * b.rigidBody.mass) / (distance * distance);
+
+    a.rigidBody.acceleration.x -= acc * direction.x;
+    a.rigidBody.acceleration.y -= acc * direction.y;
 }
