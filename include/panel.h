@@ -14,7 +14,9 @@ struct Slider
     float initialValue = 0.5f;
     float min = 0.0f;
     float max = 1.0f;
+    bool listener = false;
     bool dragging = false;
+    bool changed = false;
 
     // Normalized knob position: 0.0 to 1.0.
     float value = 0.5f;
@@ -28,7 +30,11 @@ struct Button
 
     bool value = false;
     bool visibility = true;
+    bool listener = false;
+    bool changed = false;
+
     float y = 0.0f;
+    float x = 0.0f;
 };
 
 class Panel
@@ -42,6 +48,8 @@ public:
 
     float value(const std::string &id) const;
     bool buttonValue(const std::string &id) const;
+    bool btnListener(const std::string &id);
+    bool sliderListener(const std::string &id);
 
 private:
     // Panel layout settings
@@ -56,6 +64,7 @@ private:
     static constexpr float BUTTON_X = 20.0f;
     static constexpr float BUTTON_H = 26.0f;
     static constexpr float BUTTON_TOP_MARGIN = 12.0f;
+    static constexpr float SECTIONS_SPACING = 50.0f;
 
     // Panel helper functions
     void close();
@@ -65,13 +74,12 @@ private:
     float sliderWidth() const;
     static float normalizeValue(float value, float min, float max);
     static float keepbetween0and1(float value);
-    void handleSliderValue(Slider &slider, const SDL_Event &event) const;
+    void handleSliderValue(Slider &slider, const SDL_Event &event);
     void handleKnobEvent(Slider &slider, const SDL_Event &event) const;
     void handleButtonEvent(const SDL_Event &event);
-    void setValue(const std::string id, bool value);
-    void setVisibility(const std::string id, bool visibility);
-    bool isMouseInRect(const SDL_Event &event, const SDL_FRect &rect) const;
-    bool isMouseHover(const SDL_FRect &rect, const float mouseX, const float mouseY) const;
+    void setValue(const std::string &id, bool value);
+    void setVisibility(const std::string &id, bool visibility);
+    bool isMouseInRect(const SDL_FRect &rect, const float mouseX, const float mouseY) const;
 
     // Store panel window and renderer
     SDL_Window *window = nullptr;

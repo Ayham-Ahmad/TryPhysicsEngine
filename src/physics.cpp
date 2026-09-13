@@ -15,9 +15,9 @@ float Physics2D::squaredMagnitude(const SDL_FPoint &vector)
 }
 
 // Calculate the distance between the particles
-float Physics2D::distance(const SDL_FPoint &difference)
+float Physics2D::distance(const SDL_FPoint &firstPosition, const SDL_FPoint &secondPosition)
 {
-    return std::sqrt(squaredMagnitude(difference));
+    return std::sqrt(squaredMagnitude(differenceVector(firstPosition, secondPosition)));
 }
 
 SDL_FPoint Physics2D::direction(const SDL_FPoint &difference, const float distance)
@@ -64,10 +64,15 @@ void Physics2D::applyGforce(ParticleObject &a, const ParticleObject &b)
         a.rigidBody.position,
         b.rigidBody.position);
 
-    float distance = a.rigidBody.physics2D.distance(difference);
+    float distance = a.rigidBody.physics2D.distance(a.rigidBody.position, b.rigidBody.position);
 
     if (distance == 0.0f)
         return;
+
+    float minimumDistance = a.radius + b.radius;
+
+    if (distance < minimumDistance)
+        distance = minimumDistance;
 
     SDL_FPoint direction = a.rigidBody.physics2D.direction(difference, distance);
 
@@ -75,4 +80,45 @@ void Physics2D::applyGforce(ParticleObject &a, const ParticleObject &b)
 
     a.rigidBody.acceleration.x -= acc * direction.x;
     a.rigidBody.acceleration.y -= acc * direction.y;
+}
+float Physics2D::calculateEntropy(const std::vector<ParticleObject> &particles)
+{
+    float entropy = 0.0f;
+    static constexpr int BINS = 10;
+    static constexpr float MAX_SPEED = 1000.0f;
+
+    int counts[BINS] = {};
+
+    // Count particles in speed bins
+    for (const ParticleObject &p : particles)
+    {
+        float vx = p.rigidBody.velocity.x;
+        float vy = p.rigidBody.velocity.y;
+
+        float speed = std::sqrt(vx * vx + vy * vy);
+
+        int bin = static_cast<int>((speed / MAX_SPEED) * BINS);
+
+        if (bin >= BINS)
+            bin = BINS - 1;
+
+        counts[bin]++;
+    }
+
+    // Calculate Shannon entropy
+    for (int i = 0; i < BINS; i++)
+    {
+        if (counts[i] > 0)
+        {
+            float probability =
+                static_cast<float>(counts[i]) / particles.size();
+
+            entropy -= probability * std::log(probability);
+        }
+    }
+
+    // Normalize entropy to 0-1
+    float maxEntropy = std::log(BINS);
+
+    return entropy / maxEntropy;
 }

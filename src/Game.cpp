@@ -13,15 +13,21 @@ Game::Game()
     // Get screen dimansions
     Globals::sw = mode->w;
     Globals::sh = mode->h;
-    // _screenWidth = 800;
-    // _screenHeight = 600;
+    // Globals::sw = 800;
+    // Globals::sh = 600;
 
     // Create window and renderer
     window = SDL_CreateWindow("Test", Globals::sw, Globals::sh, SDL_WINDOW_BORDERLESS);
     r = SDL_CreateRenderer(window, nullptr);
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 
-    // Initialze the contorl panel
+    // Initialize the contorl panel
     _panel.init(mode->w);
+
+    // Initialize graph
+    _graph.init();
+
+    init();
 }
 
 // Destructor
@@ -33,18 +39,18 @@ Game::~Game()
     SDL_Quit();
 }
 
-// Initialize
 void Game::init()
 {
     Globals::particlesCount = _panel.value("count");
     Globals::particlesSpacing = _panel.value("spacing");
     Globals::particleSize = _panel.value("size");
     Globals::gridSize = _panel.value("gridSize");
+    Globals::smoothingRadius = _panel.value("smoothingRadius");
 
-    // Initialze particles
-    _particles.initParticles();
+    // Initialize particles
+    _particles.init(r);
 
-    // Initialze grid
+    // Initialize grid
     _grid.initialize();
 }
 
@@ -113,15 +119,69 @@ void Game::handleInput()
     const bool *state = SDL_GetKeyboardState(NULL); // For continuos pressing
 }
 
+void Game::_listener()
+{
+    Globals::grid = _panel.buttonValue("grid");
+    Globals::graph = _panel.buttonValue("graph");
+    Globals::isGravity = _panel.buttonValue("gravity");
+    Globals::GForce = _panel.buttonValue("gforce");
+    Globals::screenCollision = _panel.buttonValue("screenCollision");
+    Globals::particles = _panel.buttonValue("particles");
+    Globals::random = _panel.buttonValue("random");
+
+    if (_panel.btnListener("reset"))
+    {
+        init();
+        return;
+    }
+
+    // Update particle settings if changed
+    if (_panel.sliderListener("count"))
+    {
+        Globals::particlesCount = _panel.value("count");
+        _particles.init(r);
+    }
+
+    if (_panel.sliderListener("spacing"))
+    {
+        Globals::particlesSpacing = _panel.value("spacing");
+        _particles.init(r);
+    }
+
+    if (_panel.sliderListener("size"))
+    {
+        Globals::particleSize = _panel.value("size");
+        _particles.init(r);
+    }
+
+    // Update grid settings if changed
+    if (_panel.sliderListener("gridSize"))
+    {
+        Globals::gridSize = _panel.value("gridSize");
+        _grid.initialize();
+    }
+
+    // Update smoothing radius if changed
+    if (_panel.sliderListener("smoothingRadius"))
+    {
+        Globals::smoothingRadius = _panel.value("smoothingRadius");
+    }
+
+    // Randomize the particles positions
+    if (_panel.btnListener("random"))
+    {
+        _particles.init(r);
+    }
+}
+
 // --- update ---
 void Game::update()
 {
-    Globals::grid = _panel.buttonValue("grid");
+    _listener();
 
     if (!_panel.buttonValue("start"))
     {
         _updateFPS();
-        init();
         return;
     }
 
@@ -134,14 +194,25 @@ void Game::update()
 
     // Getting panel values
     const double simulationDeltaTime = Globals::deltaTime * _panel.value("speed");
+
     Globals::gravity = _panel.value("gravity");
 
     // Update particles
-    _particles.updateParticles(simulationDeltaTime);
+    _particles.update(simulationDeltaTime);
 
     // Update grid
     if (Globals::grid)
         _grid.update(_particles.getParticlesList());
+
+    // Update graph
+    if (Globals::graph)
+    {
+        _graph.value("entropy", _physics2d.calculateEntropy(_particles.getParticlesList()));
+        std::array<float, 3> values = _particles.getPhysicsValues();
+        _graph.value("speed", values[0]);
+        _graph.value("kineticEnergy", values[1]);
+        _graph.value("acceleration", values[2]);
+    }
 
     // Update FPS
     _updateFPS();
@@ -150,20 +221,25 @@ void Game::update()
 // --- render ---
 void Game::render()
 {
-    // Clear the background
+    // Clear background
     _clear();
 
-    // Render the Grid
+    // Render Grid
     if (Globals::grid)
         _grid.render(r, _panel.buttonValue("start"));
 
-    // Render the particles
-    _particles.renderParticles(r);
+    // Render particles
+    if (Globals::particles)
+        _particles.render(r);
 
-    // Render the panel
+    // Render panel
     _panel.render(mouseX, mouseY);
 
-    // Render the FPS counter
+    // Render graph
+    if (Globals::graph)
+        _graph.render(r);
+
+    // Render FPS counter
     _showFPS();
 
     // Render everything

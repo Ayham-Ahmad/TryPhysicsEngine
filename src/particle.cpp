@@ -1,6 +1,6 @@
 #include "particle.h"
 
-void Particle::initParticles()
+void Particle::init(SDL_Renderer *r)
 {
     int particlesPerRow = (int)sqrt(Globals::particlesCount);
     int particlesPerCol = (Globals::particlesCount - 1) / particlesPerRow + 1;
@@ -15,15 +15,32 @@ void Particle::initParticles()
 
         p.radius = Globals::particleSize;
         p.resolution = 100;
-        p.rigidBody.mass = 100.0f;
+        p.rigidBody.mass = 1.0f;
 
-        // Calculate the row and column
-        float x = Globals::sw / 2.0f + (i % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * particlesSpacing;
-        float y = Globals::sh / 2.0f + (i / particlesPerRow - particlesPerCol / 2.0f + 0.5f) * particlesSpacing;
+        if (Globals::random)
+        {
+            // Set a random position
+            p.rigidBody.position.x = randomFloat(
+                Globals::particleSize,
+                Globals::sw - Globals::particleSize);
 
-        // Set the particle position
-        p.rigidBody.position.x = x;
-        p.rigidBody.position.y = y;
+            p.rigidBody.position.y = randomFloat(
+                Globals::particleSize,
+                Globals::sh - Globals::particleSize);
+        }
+        else
+        {
+            // Calculate the row and column
+            float x = Globals::sw / 2.0f +
+                      (i % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * particlesSpacing;
+
+            float y = Globals::sh / 2.0f +
+                      (i / particlesPerRow - particlesPerCol / 2.0f + 0.5f) * particlesSpacing;
+
+            // Set the particle position
+            p.rigidBody.position.x = x;
+            p.rigidBody.position.y = y;
+        }
 
         // Set a random color
         // p.color = {randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1};
@@ -31,25 +48,30 @@ void Particle::initParticles()
 
         _particles.push_back(p);
     }
+
+    circleTexture = Shape::circleTexture(r);
 }
 
-void Particle::updateParticles(const double simulationDeltaTime)
+void Particle::update(const double simulationDeltaTime)
 {
     for (ParticleObject &p : _particles)
     {
         // Set acceleration
-        p.rigidBody.acceleration.y = Globals::gravity;
+        if (Globals::isGravity)
+            p.rigidBody.acceleration.y = Globals::gravity;
+        else
+            p.rigidBody.acceleration.y = 0;
+
         p.rigidBody.acceleration.x = 0;
 
-        // Reset acceleration
-        // p.rigidBody.acceleration.x = 0;
-        // p.rigidBody.acceleration.y = 0;
-
-        for (ParticleObject &otherPs : _particles)
+        if (Globals::GForce)
         {
-            if (&p == &otherPs)
-                continue;
-            p.rigidBody.physics2D.applyGforce(p, otherPs);
+            for (ParticleObject &otherPs : _particles)
+            {
+                if (&p == &otherPs)
+                    continue;
+                p.rigidBody.physics2D.applyGforce(p, otherPs);
+            }
         }
 
         // Update velocity
@@ -62,18 +84,30 @@ void Particle::updateParticles(const double simulationDeltaTime)
 
         // Check collision with the screen
         _collision.checkCollisionBwteenObjAndScreen(p);
-    }
 
-    // Check collision between particles
-    _collision.checkCollisionBetweenObjs(_particles);
+        // Check collision between particles
+        _collision.checkCollisionBetweenObjs(p, _particles);
+    }
 }
 
-void Particle::renderParticles(SDL_Renderer *r)
+void Particle::render(SDL_Renderer *r)
 {
     // Render each particle
     for (ParticleObject &p : _particles)
     {
         p.s.shape(r, p.rigidBody.position, p.radius, p.resolution, p.color);
+    }
+
+    // Render each Circle
+    for (ParticleObject &p : _particles)
+    {
+        SDL_FRect dst = {
+            p.rigidBody.position.x - p.radius * Globals::smoothingRadius / 2,
+            p.rigidBody.position.y - p.radius * Globals::smoothingRadius / 2,
+            p.radius * Globals::smoothingRadius,
+            p.radius * Globals::smoothingRadius};
+
+        SDL_RenderTexture(r, circleTexture, nullptr, &dst);
     }
 
     // SDL_FRect rect1 = {_screenWidth / 2.0f - 80, _screenHeight / 2.0f - 50, 30, 30};
@@ -90,6 +124,35 @@ void Particle::renderParticles(SDL_Renderer *r)
 const std::vector<ParticleObject> &Particle::getParticlesList() const
 {
     return _particles;
+}
+
+const std::array<float, 3> Particle::getPhysicsValues() const
+{
+    float totalSpeed = 0.0f;
+    float totalKineticEnergy = 0.0f;
+    float totalAcceleration = 0.0f;
+
+    for (const ParticleObject &p : _particles)
+    {
+        float vx = p.rigidBody.velocity.x;
+        float vy = p.rigidBody.velocity.y;
+
+        float ax = p.rigidBody.acceleration.x;
+        float ay = p.rigidBody.acceleration.y;
+
+        float speed = std::sqrt(vx * vx + vy * vy);
+        float acceleration = std::sqrt(ax * ax + ay * ay);
+
+        totalSpeed += speed;
+        totalKineticEnergy += 0.5f * p.rigidBody.mass * speed * speed;
+        totalAcceleration += acceleration;
+    }
+
+    return {
+        totalSpeed / Globals::particlesCount,
+        totalKineticEnergy / Globals::particlesCount,
+        totalAcceleration / Globals::particlesCount,
+    };
 }
 
 void Particle::simulateEarthAndMoon(const int sw, const int sh)

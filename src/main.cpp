@@ -6,6 +6,7 @@
 #include "collision.cpp"
 #include "physics.cpp"
 #include "grid.cpp"
+#include "graph.cpp"
 
 double deltaTime = 0.0;
 

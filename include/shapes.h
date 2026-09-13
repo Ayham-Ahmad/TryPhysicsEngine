@@ -48,17 +48,15 @@ public:
         for (int i = 0; i < resolution; ++i)
         {
             vertices[i + 1] = {
-                {
-                    position.x + points[i].x * radius,
-                    position.y + points[i].y * radius
-                },
+                {position.x + points[i].x * radius,
+                 position.y + points[i].y * radius},
                 color,
-                {0, 0}
-            };
+                {0, 0}};
         }
 
         // Create the triangles
-        for (int i = 0; i < resolution; ++i) {
+        for (int i = 0; i < resolution; ++i)
+        {
             const int next = (i + 1) % resolution;
 
             indices[i * 3 + 0] = 0;
@@ -71,8 +69,7 @@ public:
             r, nullptr, vertices.data(),
             static_cast<int>(vertices.size()),
             indices.data(),
-            static_cast<int>(indices.size())
-        );
+            static_cast<int>(indices.size()));
     }
 
     // Source - https://stackoverflow.com/a/48291620
@@ -92,6 +89,55 @@ public:
         // Draw each point
         for (const SDL_FPoint &point : points)
             SDL_RenderPoint(r, cx + point.x, cy + point.y);
+    }
+
+    inline static SDL_Texture *circleTexture(SDL_Renderer *r)
+    {
+        const int size = Globals::smoothingRadius * 2;
+        SDL_Surface *surface = SDL_CreateSurface(size, size, SDL_PIXELFORMAT_RGBA32);
+
+        SDL_FillSurfaceRect(surface, nullptr, SDL_MapSurfaceRGBA(surface, 0, 0, 0, 0));
+
+        Uint32 *pixels = static_cast<Uint32 *>(surface->pixels);
+
+        float radius = size / 2.0f;
+        float center = radius;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x - center;
+                float dy = y - center;
+
+                float distance = std::sqrt(dx * dx + dy * dy);
+
+                if (distance <= radius)
+                {
+                    float alpha = 255.0f;
+
+                    // Start fading near the edge
+                    if (distance > radius - Globals::smoothingRadius)
+                    {
+                        float t = (radius - distance) / Globals::smoothingRadius;
+                        alpha = t * 255.0f;
+                    }
+
+                    pixels[y * (surface->pitch / 4) + x] =
+                        SDL_MapSurfaceRGBA(
+                            surface,
+                            255,
+                            255,
+                            255,
+                            static_cast<Uint8>(alpha));
+                }
+            }
+        }
+
+        SDL_Texture *circleTexture = SDL_CreateTextureFromSurface(r, surface);
+        SDL_DestroySurface(surface);
+
+        return circleTexture;
     }
 
 private:

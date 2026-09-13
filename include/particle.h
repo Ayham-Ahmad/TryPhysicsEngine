@@ -1,5 +1,6 @@
 #pragma once
 #include <SDL3/SDL.h>
+#include <array>
 
 #include "shapes.h"
 #include "random.h"
@@ -35,19 +36,21 @@ class Particle
 {
 private:
     // Set particle grid properties
-    const int _particlesPerRow = 15;
+    const int _particlesPerRow = 25;
     int _spacing = 25;
     int _startX, _startY;
 
     std::vector<ParticleObject> _particles;
+    SDL_Texture *circleTexture = nullptr;
 
     Collision _collision;
     Colors _colors;
 
 public:
-    void initParticles();
-    void updateParticles(const double simulationDeltaTime);
-    void renderParticles(SDL_Renderer *r);
+    void init(SDL_Renderer *r);
+    void update(const double simulationDeltaTime);
+    void render(SDL_Renderer *r);
     const std::vector<ParticleObject> &getParticlesList() const;
+    const std::array<float, 3> getPhysicsValues() const;
     void simulateEarthAndMoon(const int sw, const int sh);
 };

@@ -14,6 +14,7 @@
 #include "panel.h"
 #include "collision.h"
 #include "grid.h"
+#include "graph.h"
 
 class Game
 {
@@ -59,6 +60,7 @@ private:
 
     void _updateFPS();
     void _showFPS();
+    void _listener();
 
     // --- Vars ---
 private:
@@ -67,4 +69,6 @@ private:
     Panel _panel;
     Particle _particles;
     Grid _grid;
+    Graph _graph;
+    Physics2D _physics2d;
 };
