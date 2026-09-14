@@ -11,6 +11,7 @@
 
 #include "colors.h"
 #include "text.h"
+#include "window.h"
 
 struct GraphValue
 {
@@ -20,15 +21,14 @@ struct GraphValue
     std::queue<float> values;
 };
 
-class Graph
+class Graph : public Window
 {
 private:
-    static constexpr float GRAPH_X = 0.0f;
-    static constexpr float GRAPH_Y = 60.0f;
     static constexpr float GRAPH_WIDTH = 200.0f * 3.0f;
     static constexpr float GRAPH_HEIGHT = 100.0f * 3.0f;
+    static constexpr float WINDOW_MARGIN = 20.0f;
 
-    static constexpr int MAX_SAMPLES = 175.0f;
+    static constexpr int MAX_SAMPLES = 160;
     static constexpr float POINT_SIZE = 3.0f;
     static constexpr float POINT_SPACING = 3.0f;
 
@@ -46,9 +46,12 @@ private:
     Colors _c;
 
 public:
+    ~Graph();
+
     void init();
+    void init(float sw, float sh);
 
+    void handleEvent(const SDL_Event &event);
     void value(const std::string &id, float value);
-
-    void render(SDL_Renderer *r);
+    void render() const;
 };

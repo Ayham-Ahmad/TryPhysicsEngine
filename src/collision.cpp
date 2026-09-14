@@ -1,4 +1,5 @@
 #include "collision.h"
+#include "particle.h"
 
 // Check collision with the screen
 void Collision::checkCollisionBwteenObjAndScreen(ParticleObject &p)
@@ -61,22 +62,23 @@ void Collision::checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::v
         if (&p == &sampleParticle)
             continue;
 
-        // Calculate the difference between the positions
-        SDL_FPoint difference = sampleParticle.rigidBody.physics2D.differenceVector(
-            sampleParticle.rigidBody.position,
-            p.rigidBody.position);
+        // Calculate the difference and squared distance between the positions
+        float dx = p.rigidBody.position.x - sampleParticle.rigidBody.position.x;
+        float dy = p.rigidBody.position.y - sampleParticle.rigidBody.position.y;
 
-        float distance = sampleParticle.rigidBody.physics2D.distance(sampleParticle.rigidBody.position, p.rigidBody.position);
         float radiusSum = sampleParticle.radius + p.radius;
+        float squaredDistance = dx * dx + dy * dy;
 
-        if (distance > radiusSum || distance == 0.0f)
+        if (squaredDistance > radiusSum * radiusSum || squaredDistance == 0.0f)
             continue;
 
+        float distance = std::sqrt(squaredDistance);
+
         // Calculate the collision normal
-        SDL_FPoint normal = sampleParticle.rigidBody.physics2D.direction(difference, distance);
+        SDL_FPoint normal = {dx / distance, dy / distance};
 
         // Calculate the overlap
-        float overlap = sampleParticle.rigidBody.physics2D.getOverlapBetweenTwoObjects(sampleParticle.radius, p.radius, distance);
+        float overlap = Physics2D::getOverlapBetweenTwoObjects(sampleParticle.radius, p.radius, distance);
 
         // Move the particles apart
         sampleParticle.rigidBody.position.x -= normal.x * overlap * 0.5f;
@@ -87,13 +89,13 @@ void Collision::checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::v
 
         // Calculate relative velocity
         SDL_FPoint relativeVelocity =
-            sampleParticle.rigidBody.physics2D.getRelativeVelocityBetweenTwoObjects(
+            Physics2D::getRelativeVelocityBetweenTwoObjects(
                 sampleParticle.rigidBody.velocity,
                 p.rigidBody.velocity);
 
         // Calculate velocity along the collision normal
         float velocityAlongNormal =
-            sampleParticle.rigidBody.physics2D.getVelocityAlongCollisionNormal(
+            Physics2D::getVelocityAlongCollisionNormal(
                 relativeVelocity,
                 normal);
 
@@ -102,7 +104,7 @@ void Collision::checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::v
             continue;
 
         // Calculate the collision impulse
-        float impulseMagnitude = sampleParticle.rigidBody.physics2D.getCollisionImpulseMagnitude(
+        float impulseMagnitude = Physics2D::getCollisionImpulseMagnitude(
             Globals::coefficientOfRestitution,
             velocityAlongNormal,
             sampleParticle.rigidBody.mass,
@@ -110,7 +112,7 @@ void Collision::checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::v
 
         // Calculate the impulse vector
         SDL_FPoint impulse =
-            sampleParticle.rigidBody.physics2D.getCollisionImpulseVector(
+            Physics2D::getCollisionImpulseVector(
                 normal,
                 impulseMagnitude);
 
@@ -124,20 +126,21 @@ void Collision::checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::v
     }
 }
 
-static float smoothingKernel(float radius, float dst)
+float Collision::_smoothingKernel(float radius, float dst)
 {
+    float volume = Globals::PI * std::pow(radius, 8) / 4;
     float value = std::max(0.0f, radius * radius - dst * dst);
-    return value * value * value;
+    return value * value * value  / volume;
 }
 
-float calculateDensity(ParticleObject &samplePoint, std::vector<ParticleObject> &particles)
+float Collision::calculateDensity(const ParticleObject &samplePoint, const std::vector<ParticleObject> &particles) const
 {
     float density = 0;
 
-    for (ParticleObject &p : particles)
+    for (const ParticleObject &p : particles)
     {
-        float dst = samplePoint.rigidBody.physics2D.distance(samplePoint.rigidBody.position, p.rigidBody.position);
-        float influence = smoothingKernel(Globals::smoothingRadius, dst);
+        float dst = Physics2D::distance(samplePoint.rigidBody.position, p.rigidBody.position);
+        float influence = _smoothingKernel(Globals::smoothingRadius, dst);
         density += p.rigidBody.mass * influence;
     }
 

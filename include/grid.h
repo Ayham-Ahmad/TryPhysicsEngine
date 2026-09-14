@@ -12,7 +12,7 @@ class Grid
 public:
     void initialize();
     void update(const std::vector<ParticleObject> &particles);
-    void render(SDL_Renderer *r, const bool isStarted);
+    void render(SDL_Renderer *r, const bool isStarted) const;
 
 private:
     std::vector<SDL_FRect> _grid;

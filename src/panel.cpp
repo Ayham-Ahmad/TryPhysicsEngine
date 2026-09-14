@@ -1,5 +1,8 @@
 #include "panel.h"
 
+#include <iomanip>
+#include <sstream>
+
 Panel::~Panel()
 {
     close();
@@ -7,6 +10,15 @@ Panel::~Panel()
 
 void Panel::init(float sw)
 {
+    // Initialize the text lines: {id, label}
+    _texts = {
+        {"entropy", "Entropy: "},
+        {"speed", "Speed: "},
+        {"kineticEnergy", "Kinetic Energy: "},
+        {"acceleration", "Acceleration: "},
+        {"density", "Density: "},
+    };
+
     // Initialize the sliders: {id, initValue, min, max, listener}
     _sliders = {
         {"speed", 1.0f, 0.1f, 10.0f, false},
@@ -29,40 +41,52 @@ void Panel::init(float sw)
         {"gforce", "GForce", true, true},
         {"screenCollision", "Screen Collision", true, true},
         {"particles", "Show Particles", true, true},
+        {"circles", "Render Circles", true, true},
         {"random", "random", false, true, true},
     };
 
-    // Set PositionY for each button
+    // --- Layout top to bottom: texts, action buttons, checkboxes, sliders ---
+
+    // Section 1: text lines
+    for (size_t i = 0; i < _texts.size(); i++)
+        _texts[i].y = TEXT_TOP + static_cast<float>(i) * TEXT_SPACING;
+
+    // Section 2: start/reset/pause, all on one line
+    const float textsBottom = TEXT_TOP + static_cast<float>(_texts.size()) * TEXT_SPACING;
+    const float buttonsY = textsBottom + SECTION_SPACING;
+
     int i = 0;
     for (Button &button : _buttons)
     {
-        if (button.id == "start" || button.id == "reset" || button.id == "pause")
-        {
-            button.y = SLIDER_TOP + i * SLIDER_SPACING;
-            i++;
-        }
+        if (!isActionButton(button.id))
+            continue;
+
+        button.x = PANEL_MARGIN + i * (actionButtonWidth() + BUTTON_GAP);
+        button.y = buttonsY;
+        i++;
     }
 
-    // Set PositionY for each checkbox button
+    // Section 3: checkboxes, two columns
+    const float checkboxesY = buttonsY + BUTTON_H + SECTION_SPACING;
+
     int checkboxIndex = 0;
     for (Button &button : _buttons)
     {
-        if (button.id == "start" || button.id == "reset" || button.id == "pause")
+        if (isActionButton(button.id))
             continue;
 
         const int row = checkboxIndex / 2;
         const int column = checkboxIndex % 2;
 
-        button.y = SLIDER_TOP + 2 * SLIDER_SPACING + row * SLIDER_SPACING + SECTIONS_SPACING;
         button.x = column == 0 ? BUTTON_X : PANEL_W / 2.0f;
+        button.y = checkboxesY + row * CHECKBOX_ROW_SPACING;
 
         checkboxIndex++;
     }
 
-    // Set PositionY for each slider
+    // Section 4: sliders
     const int checkboxRows = (checkboxIndex + 1) / 2;
-    const float sliderTop = SLIDER_TOP + 2 * SLIDER_SPACING +
-                            checkboxRows * SLIDER_SPACING + BUTTON_TOP_MARGIN;
+    const float slidersY = checkboxesY + checkboxRows * CHECKBOX_ROW_SPACING + SECTION_SPACING;
 
     i = 0;
     for (Slider &slider : _sliders)
@@ -71,7 +95,7 @@ void Panel::init(float sw)
         slider.value = normalizeValue(slider.initialValue, slider.min, slider.max);
 
         // Set the slider Y position
-        slider.y = sliderTop + i * SLIDER_SPACING * 0.75f + SECTIONS_SPACING;
+        slider.y = slidersY + i * SLIDER_ROW_SPACING;
         i++;
     }
 
@@ -121,11 +145,22 @@ void Panel::handleEvent(const SDL_Event &event)
     }
 }
 
-void Panel::render(const float mouseX, const float mouseY)
+void Panel::render(const float mouseX, const float mouseY) const
 {
+    if (!window || !r)
+        return;
+
     // Clear the panel
     c.VeryDarkGray(r);
     SDL_RenderClear(r);
+
+    // Draw text lines
+    for (const PanelText &text : _texts)
+    {
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(2) << text.value;
+        drawText(r, text.label + ss.str(), TEXT_X, text.y, 14);
+    }
 
     // Draw each button
     int checkboxIndex = 0;
@@ -134,8 +169,8 @@ void Panel::render(const float mouseX, const float mouseY)
         if (button.id == "start" || button.id == "reset" || button.id == "pause")
         {
             const SDL_FRect buttonRect = {
-                BUTTON_X, button.y,
-                PANEL_W - BUTTON_X * 2.0f, BUTTON_H};
+                button.x, button.y,
+                actionButtonWidth(), BUTTON_H};
 
             SDL_Color textColor = {255, 255, 255, 255};
 
@@ -157,10 +192,10 @@ void Panel::render(const float mouseX, const float mouseY)
             // Set button text
             std::string text = button.text;
             if (button.id == "pause")
-                text = button.value ? "Pause" : "Resume";
+                text = button.value ? "Resume" : "Pause";
 
             // Draw button text
-            drawText(r, text, BUTTON_X + 20.0f, buttonRect.y + 4.0f, 16, textColor);
+            drawText(r, text, buttonRect.x + 12.0f, buttonRect.y + 4.0f, 16, textColor);
 
             // Hover effect
             if (isMouseInRect(buttonRect, mouseX, mouseY) && button.visibility)
@@ -175,7 +210,7 @@ void Panel::render(const float mouseX, const float mouseY)
             const int column = checkboxIndex % 2;
             const float x = column == 0 ? BUTTON_X : PANEL_W / 2.0f;
 
-            const SDL_FRect checkbox = {x, button.y, 16.0f, 16.0f};
+            const SDL_FRect checkbox = {x, button.y, CHECKBOX_SIZE, CHECKBOX_SIZE};
 
             SDL_Color textColor = {255, 255, 255, 255};
 
@@ -197,7 +232,7 @@ void Panel::render(const float mouseX, const float mouseY)
             // Draw button text
             std::string text = button.text;
             if (button.id == "pause")
-                text = button.value ? "Pause" : "Resume";
+                text = button.value ? "Resume" : "Pause";
 
             drawText(r, text, checkbox.x + checkbox.w + 6.0f, checkbox.y - 2.0f, 14, textColor);
 
@@ -262,21 +297,21 @@ bool Panel::buttonValue(const std::string &id) const
     return false;
 }
 
+void Panel::setText(const std::string &id, float value)
+{
+    for (PanelText &text : _texts)
+    {
+        if (text.id == id)
+        {
+            text.value = value;
+            return;
+        }
+    }
+}
+
 void Panel::close()
 {
-    if (r)
-    {
-        SDL_DestroyRenderer(r);
-        r = nullptr;
-    }
-
-    if (window)
-    {
-        SDL_DestroyWindow(window);
-        window = nullptr;
-    }
-
-    windowID = 0;
+    Window::close();
 
     for (Slider &slider : _sliders)
     {
@@ -288,7 +323,7 @@ void Panel::close()
         button.changed = false;
 }
 
-SDL_FRect Panel::knobRect(const Slider &slider) const
+SDL_FRect Panel::knobRect(const Slider &slider)
 {
     // Calculate the knob position and size
     return {
@@ -301,24 +336,53 @@ SDL_FRect Panel::knobRect(const Slider &slider) const
 float Panel::panelHeight() const
 {
     // Use the default height if there are no controls
-    if (_sliders.empty() && _buttons.empty())
-        return SLIDER_TOP + PANEL_BOTTOM;
+    if (_texts.empty() && _sliders.empty() && _buttons.empty())
+        return PANEL_MARGIN * 2.0f;
 
-    const int checkboxCount = static_cast<int>(_buttons.size()) - 3;
+    const float textsBottom = TEXT_TOP + static_cast<float>(_texts.size()) * TEXT_SPACING;
+    const float buttonsY = textsBottom + SECTION_SPACING;
+    const float checkboxesY = buttonsY + BUTTON_H + SECTION_SPACING;
+
+    const int checkboxCount = static_cast<int>(_buttons.size()) - actionButtonCount();
     const int checkboxRows = (checkboxCount + 1) / 2;
 
-    const float sliderTop = SLIDER_TOP + 2 * SLIDER_SPACING +
-                            checkboxRows * SLIDER_SPACING +
-                            BUTTON_TOP_MARGIN + SECTIONS_SPACING;
+    const float slidersY = checkboxesY + checkboxRows * CHECKBOX_ROW_SPACING + SECTION_SPACING;
 
-    return sliderTop +
-           static_cast<float>(_sliders.size() - 1) * SLIDER_SPACING * 0.75f +
+    // Return the top of the slider section if there are no sliders
+    if (_sliders.empty())
+        return slidersY + SLIDER_H + PANEL_BOTTOM;
+
+    return slidersY +
+           static_cast<float>(_sliders.size() - 1) * SLIDER_ROW_SPACING +
            SLIDER_H + PANEL_BOTTOM;
 }
 
-float Panel::sliderWidth() const
+float Panel::sliderWidth()
 {
     return PANEL_W - SLIDER_X - PANEL_MARGIN;
+}
+
+float Panel::actionButtonWidth()
+{
+    return (PANEL_W - PANEL_MARGIN * 2.0f - BUTTON_GAP * 2.0f) / 3.0f;
+}
+
+int Panel::actionButtonCount() const
+{
+    int count = 0;
+
+    for (const Button &button : _buttons)
+    {
+        if (isActionButton(button.id))
+            count++;
+    }
+
+    return count;
+}
+
+bool Panel::isActionButton(const std::string &id)
+{
+    return id == "start" || id == "reset" || id == "pause";
 }
 
 float Panel::normalizeValue(float value, float min, float max)
@@ -357,7 +421,7 @@ void Panel::handleSliderValue(Slider &slider, const SDL_Event &event)
         slider.changed = true;
 }
 
-void Panel::handleKnobEvent(Slider &slider, const SDL_Event &event) const
+void Panel::handleKnobEvent(Slider &slider, const SDL_Event &event)
 {
     // Get the knob position
     const SDL_FRect knob = knobRect(slider);
@@ -383,15 +447,15 @@ void Panel::handleButtonEvent(const SDL_Event &event)
         if (button.id == "start" || button.id == "reset" || button.id == "pause")
         {
             buttonRect = {
-                BUTTON_X, button.y,
-                PANEL_W - BUTTON_X * 2.0f, BUTTON_H};
+                button.x, button.y,
+                actionButtonWidth(), BUTTON_H};
         }
         else
         {
             const int column = checkboxIndex % 2;
             const float x = column == 0 ? BUTTON_X : PANEL_W / 2.0f;
 
-            buttonRect = {x, button.y, 16.0f, 16.0f};
+            buttonRect = {x, button.y, CHECKBOX_SIZE, CHECKBOX_SIZE};
             checkboxIndex++;
         }
 
@@ -429,7 +493,7 @@ void Panel::handleButtonEvent(const SDL_Event &event)
     }
 }
 
-bool Panel::isMouseInRect(const SDL_FRect &rect, const float mouseX, const float mouseY) const
+bool Panel::isMouseInRect(const SDL_FRect &rect, const float mouseX, const float mouseY)
 {
     return mouseX >= rect.x && mouseX <= rect.x + rect.w &&
            mouseY >= rect.y && mouseY <= rect.y + rect.h;
@@ -498,24 +562,4 @@ bool Panel::sliderListener(const std::string &id)
     }
 
     return false;
-}
-
-SDL_WindowID Panel::eventWindowID(const SDL_Event &event) const
-{
-    // Get window ID
-    switch (event.type)
-    {
-    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-        return event.window.windowID;
-
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    case SDL_EVENT_MOUSE_BUTTON_UP:
-        return event.button.windowID;
-
-    case SDL_EVENT_MOUSE_MOTION:
-        return event.motion.windowID;
-
-    default:
-        return 0;
-    }
 }

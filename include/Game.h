@@ -15,19 +15,17 @@
 #include "collision.h"
 #include "grid.h"
 #include "graph.h"
+#include "window.h"
 
-class Game
+class Game : public Window
 {
 public:
-    SDL_Window *window = nullptr;
-    SDL_Renderer *r = nullptr;
-
     Game();
     ~Game();
 
     void init();
 
-    Timer<600> timer;
+    Timer<10000> timer;
 
 public:
     // Core game loop functions
@@ -37,8 +35,8 @@ public:
 
 private:
     // Clear and present
-    void _clear();
-    void _present();
+    void _clear() const;
+    void _present() const;
 
     // Event
     SDL_Event _e;
@@ -50,6 +48,10 @@ public:
     Uint64 NOW, LAST;
     float mouseX, mouseY;
 
+    // --- Refresh rates ---
+    static constexpr double GRAPH_REFRESH_RATE = 1.0 / 30.0;
+    static constexpr double PANEL_REFRESH_RATE = 1.0 / 24.0;
+
     // --- FPS system ---
 private:
     double _fpsTimer = 0.0;        // time accumulator for measuring FPS
@@ -59,7 +61,7 @@ private:
     int _displayedFPS = 0;         // stable FPS value shown on screen
 
     void _updateFPS();
-    void _showFPS();
+    void _showFPS() const;
     void _listener();
 
     // --- Vars ---
@@ -70,5 +72,10 @@ private:
     Particle _particles;
     Grid _grid;
     Graph _graph;
-    Physics2D _physics2d;
+
+    // --- Timers ---
+    double _panelTimer = 0.0;
+    double _graphTimer = 0.0;
+    double _accumulator = 0.0;
+    bool _graphWasEnabled = false;
 };

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <SDL3/SDL.h>
 
 class Colors
@@ -74,52 +74,52 @@ public:
         SDL_SetRenderDrawColor(r, 200, 200, 50, 255);
     }
 
-    static SDL_FColor WhiteF()
+    static constexpr SDL_FColor WhiteF()
     {
         return {1.0f, 1.0f, 1.0f, 1.0f};
     }
 
-    static SDL_FColor BlackF()
+    static constexpr SDL_FColor BlackF()
     {
         return {0.0f, 0.0f, 0.0f, 1.0f};
     }
 
-    static SDL_FColor RedF()
+    static constexpr SDL_FColor RedF()
     {
         return {1.0f, 0.0f, 0.0f, 1.0f};
     }
 
-    static SDL_FColor GreenF()
+    static constexpr SDL_FColor GreenF()
     {
         return {0.0f, 1.0f, 0.0f, 1.0f};
     }
 
-    static SDL_FColor BlueF()
+    static constexpr SDL_FColor BlueF()
     {
         return {0.0f, 0.0f, 1.0f, 1.0f};
     }
 
-    static SDL_FColor YellowF()
+    static constexpr SDL_FColor YellowF()
     {
         return {1.0f, 1.0f, 0.0f, 1.0f};
     }
 
-    static SDL_FColor CyanF()
+    static constexpr SDL_FColor CyanF()
     {
         return {0.0f, 1.0f, 1.0f, 1.0f};
     }
 
-    static SDL_FColor PurpleF()
+    static constexpr SDL_FColor PurpleF()
     {
         return {180.0f / 255.0f, 0.0f, 1.0f, 1.0f};
     }
 
-    static SDL_FColor OrangeF()
+    static constexpr SDL_FColor OrangeF()
     {
         return {1.0f, 165.0f / 255.0f, 0.0f, 1.0f};
     }
 
-    static SDL_FColor GrayF()
+    static constexpr SDL_FColor GrayF()
     {
         return {128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 1.0f};
     }

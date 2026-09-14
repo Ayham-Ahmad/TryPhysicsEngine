@@ -33,8 +33,11 @@ Game::Game()
 // Destructor
 Game::~Game()
 {
-    SDL_DestroyRenderer(r);
-    SDL_DestroyWindow(window);
+    close();
+
+    _graph.close();
+    _panel.close();
+
     TTF_Quit();
     SDL_Quit();
 }
@@ -78,20 +81,20 @@ void Game::_updateFPS()
 }
 
 // --- Display the FPS on the screen ---
-void Game::_showFPS()
+void Game::_showFPS() const
 {
     drawText(r, "FPS: " + std::to_string(_displayedFPS), 10, 10, 25);
 }
 
 // --- clear and present ---
-void Game::_clear()
+void Game::_clear() const
 {
     _colors.Black(r);
     SDL_RenderClear(r);
 }
 
 // --- Show to the screen ---
-void Game::_present()
+void Game::_present() const
 {
     SDL_RenderPresent(r);
 }
@@ -102,6 +105,7 @@ void Game::handleInput()
     while (SDL_PollEvent(&_e))
     {
         _panel.handleEvent(_e);
+        _graph.handleEvent(_e);
 
         // Close window
         if (_e.type == SDL_EVENT_QUIT)
@@ -127,10 +131,20 @@ void Game::_listener()
     Globals::GForce = _panel.buttonValue("gforce");
     Globals::screenCollision = _panel.buttonValue("screenCollision");
     Globals::particles = _panel.buttonValue("particles");
+    Globals::circles = _panel.buttonValue("circles");
     Globals::random = _panel.buttonValue("random");
+
+    // Open or close the graph window when the graph toggle changes
+    if (Globals::graph && !_graphWasEnabled)
+        _graph.init(Globals::sw, Globals::sh);
+    else if (!Globals::graph && _graphWasEnabled)
+        _graph.close();
+
+    _graphWasEnabled = Globals::graph;
 
     if (_panel.btnListener("reset"))
     {
+        _accumulator = 0.0;
         init();
         return;
     }
@@ -179,8 +193,10 @@ void Game::update()
 {
     _listener();
 
+    // Don't update if not started yet
     if (!_panel.buttonValue("start"))
     {
+        _accumulator = 0.0;
         _updateFPS();
         return;
     }
@@ -192,26 +208,43 @@ void Game::update()
         return;
     }
 
-    // Getting panel values
-    const double simulationDeltaTime = Globals::deltaTime * _panel.value("speed");
+    // Run the physics at a fixed rate regardless of the render speed
+    constexpr double STEP_TIME = 1.0 / 120.0;
+
+    _accumulator += Globals::deltaTime * _panel.value("speed");
+
+    if (_accumulator > STEP_TIME * 10.0)
+        _accumulator = STEP_TIME * 10.0;
 
     Globals::gravity = _panel.value("gravity");
 
     // Update particles
-    _particles.update(simulationDeltaTime);
+    while (_accumulator >= STEP_TIME)
+    {
+        _particles.update(STEP_TIME);
+        _accumulator -= STEP_TIME;
+    }
 
     // Update grid
     if (Globals::grid)
         _grid.update(_particles.getParticlesList());
 
-    // Update graph
+    // Update metrics for the graph and panel
+    const PhysicsStats stats = _particles.getPhysicsStats();
+
+    _panel.setText("entropy", stats.entropy);
+    _panel.setText("speed", stats.speed);
+    _panel.setText("kineticEnergy", stats.kineticEnergy);
+    _panel.setText("acceleration", stats.acceleration);
+    _panel.setText("density", stats.denstiy);
+
     if (Globals::graph)
     {
-        _graph.value("entropy", _physics2d.calculateEntropy(_particles.getParticlesList()));
-        std::array<float, 3> values = _particles.getPhysicsValues();
-        _graph.value("speed", values[0]);
-        _graph.value("kineticEnergy", values[1]);
-        _graph.value("acceleration", values[2]);
+        _graph.value("entropy", stats.entropy);
+        _graph.value("speed", stats.speed);
+        _graph.value("kineticEnergy", stats.kineticEnergy);
+        _graph.value("acceleration", stats.acceleration);
+        _graph.value("density", stats.denstiy);
     }
 
     // Update FPS
@@ -232,12 +265,24 @@ void Game::render()
     if (Globals::particles)
         _particles.render(r);
 
-    // Render panel
-    _panel.render(mouseX, mouseY);
+    // Render panel (capped)
+    _panelTimer += Globals::deltaTime;
+    if (_panelTimer >= PANEL_REFRESH_RATE)
+    {
+        _panelTimer -= PANEL_REFRESH_RATE;
+        _panel.render(mouseX, mouseY);
+    }
 
-    // Render graph
-    if (Globals::graph)
-        _graph.render(r);
+    // Render graph (capped)
+    if (Globals::graph && _graph.isOpen())
+    {
+        _graphTimer += Globals::deltaTime;
+        if (_graphTimer >= GRAPH_REFRESH_RATE)
+        {
+            _graphTimer -= GRAPH_REFRESH_RATE;
+            _graph.render();
+        }
+    }
 
     // Render FPS counter
     _showFPS();

@@ -14,8 +14,8 @@ void Particle::init(SDL_Renderer *r)
         ParticleObject p;
 
         p.radius = Globals::particleSize;
-        p.resolution = 100;
-        p.rigidBody.mass = 1.0f;
+        p.resolution = Globals::PARTICLE_RESOLUTION;
+        p.rigidBody.mass = Globals::particl_mass;
 
         if (Globals::random)
         {
@@ -48,8 +48,6 @@ void Particle::init(SDL_Renderer *r)
 
         _particles.push_back(p);
     }
-
-    circleTexture = Shape::circleTexture(r);
 }
 
 void Particle::update(const double simulationDeltaTime)
@@ -70,7 +68,7 @@ void Particle::update(const double simulationDeltaTime)
             {
                 if (&p == &otherPs)
                     continue;
-                p.rigidBody.physics2D.applyGforce(p, otherPs);
+                Physics2D::applyGforce(p, otherPs);
             }
         }
 
@@ -90,24 +88,31 @@ void Particle::update(const double simulationDeltaTime)
     }
 }
 
-void Particle::render(SDL_Renderer *r)
+void Particle::render(SDL_Renderer *r) const
 {
     // Render each particle
-    for (ParticleObject &p : _particles)
+    for (const ParticleObject &p : _particles)
     {
-        p.s.shape(r, p.rigidBody.position, p.radius, p.resolution, p.color);
+        Shape::shape(r, p.rigidBody.position, p.radius, p.resolution, p.color);
     }
 
     // Render each Circle
-    for (ParticleObject &p : _particles)
+    if (Globals::circles)
     {
-        SDL_FRect dst = {
-            p.rigidBody.position.x - p.radius * Globals::smoothingRadius / 2,
-            p.rigidBody.position.y - p.radius * Globals::smoothingRadius / 2,
-            p.radius * Globals::smoothingRadius,
-            p.radius * Globals::smoothingRadius};
+        SDL_Texture *texture = getCircleTexture(r);
 
-        SDL_RenderTexture(r, circleTexture, nullptr, &dst);
+        for (const ParticleObject &p : _particles)
+        {
+            const float dstSize = std::min(p.radius * Globals::smoothingRadius, 400.0f);
+
+            SDL_FRect dst = {
+                p.rigidBody.position.x - dstSize / 2.0f,
+                p.rigidBody.position.y - dstSize / 2.0f,
+                dstSize,
+                dstSize};
+
+            SDL_RenderTexture(r, texture, nullptr, &dst);
+        }
     }
 
     // SDL_FRect rect1 = {_screenWidth / 2.0f - 80, _screenHeight / 2.0f - 50, 30, 30};
@@ -121,16 +126,38 @@ void Particle::render(SDL_Renderer *r)
     // SDL_RenderFillRect(r, &rect3);
 }
 
+// Get the circle texture, regenerating it only when the smoothing radius changes
+SDL_Texture *Particle::getCircleTexture(SDL_Renderer *r) const
+{
+    const int smoothing = static_cast<int>(Globals::smoothingRadius);
+
+    if (circleTexture && circleTextureSmoothing == smoothing)
+        return circleTexture;
+
+    if (circleTexture)
+        SDL_DestroyTexture(circleTexture);
+
+    circleTexture = Shape::circleTexture(r);
+    circleTextureSmoothing = smoothing;
+
+    return circleTexture;
+}
+
 const std::vector<ParticleObject> &Particle::getParticlesList() const
 {
     return _particles;
 }
 
-const std::array<float, 3> Particle::getPhysicsValues() const
+PhysicsStats Particle::getPhysicsStats() const
 {
+    static constexpr int BINS = 10;
+    static constexpr float MAX_SPEED = 1000.0f;
+
+    int counts[BINS] = {};
     float totalSpeed = 0.0f;
     float totalKineticEnergy = 0.0f;
-    float totalAcceleration = 0.0f;
+    float totalAcceleration = 0.0f; 
+    float density = 0.0f;
 
     for (const ParticleObject &p : _particles)
     {
@@ -146,22 +173,49 @@ const std::array<float, 3> Particle::getPhysicsValues() const
         totalSpeed += speed;
         totalKineticEnergy += 0.5f * p.rigidBody.mass * speed * speed;
         totalAcceleration += acceleration;
+        density += _collision.calculateDensity(p, _particles);
+
+        int bin = static_cast<int>((speed / MAX_SPEED) * BINS);
+
+        if (bin >= BINS)
+            bin = BINS - 1;
+
+        counts[bin]++;
     }
 
+    // Calculate Shannon entropy
+    float entropy = 0.0f;
+
+    for (int i = 0; i < BINS; i++)
+    {
+        if (counts[i] > 0)
+        {
+            float probability = static_cast<float>(counts[i]) / _particles.size();
+
+            entropy -= probability * std::log(probability);
+        }
+    }
+
+    const float count = _particles.empty() ? 1.0f : static_cast<float>(_particles.size());
+
     return {
-        totalSpeed / Globals::particlesCount,
-        totalKineticEnergy / Globals::particlesCount,
-        totalAcceleration / Globals::particlesCount,
+        entropy / std::logf(BINS),
+        totalSpeed / count,
+        totalKineticEnergy / count,
+        totalAcceleration / count,
+        density,
     };
 }
 
 void Particle::simulateEarthAndMoon(const int sw, const int sh)
 {
+    constexpr int PARTICLE_RESOLUTION = 32;
+
     // Earth
     ParticleObject earth;
 
     earth.radius = 100;
-    earth.resolution = 100;
+    earth.resolution = PARTICLE_RESOLUTION;
 
     earth.rigidBody.position.x = sw / 2.0f;
     earth.rigidBody.position.y = sh / 2.0f;
@@ -183,7 +237,7 @@ void Particle::simulateEarthAndMoon(const int sw, const int sh)
     ParticleObject moon;
 
     moon.radius = Globals::particleSize;
-    moon.resolution = 100;
+    moon.resolution = PARTICLE_RESOLUTION;
 
     float orbitDistance = sw * 0.30f;
 

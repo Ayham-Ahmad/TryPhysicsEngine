@@ -32,31 +32,36 @@ void Grid::initialize()
 // Update gird
 void Grid::update(const std::vector<ParticleObject> &particles)
 {
-    _cells.clear();
+    std::fill(_cells.begin(), _cells.end(), 0);
 
-    for (const SDL_FRect &g : _grid)
+    int rows = (Globals::sh + Globals::gridSize - 1) / Globals::gridSize;
+    int cols = (Globals::sw + Globals::gridSize - 1) / Globals::gridSize;
+
+    // Bucket each particle into the cells its bounding box overlaps
+    for (const ParticleObject &p : particles)
     {
-        int particlesCount = 0;
+        int minRow = (p.rigidBody.position.y - p.radius) / Globals::gridSize;
+        int maxRow = (p.rigidBody.position.y + p.radius) / Globals::gridSize;
+        int minCol = (p.rigidBody.position.x - p.radius) / Globals::gridSize;
+        int maxCol = (p.rigidBody.position.x + p.radius) / Globals::gridSize;
 
-        for (const ParticleObject &p : particles)
+        if (minRow < 0) minRow = 0;
+        if (maxRow >= rows) maxRow = rows - 1;
+        if (minCol < 0) minCol = 0;
+        if (maxCol >= cols) maxCol = cols - 1;
+
+        for (int row = minRow; row <= maxRow; row++)
         {
-            if (
-                p.rigidBody.position.x + p.radius > g.x &&
-                p.rigidBody.position.x - p.radius < g.x + g.w &&
-
-                p.rigidBody.position.y + p.radius > g.y &&
-                p.rigidBody.position.y - p.radius < g.y + g.h)
+            for (int col = minCol; col <= maxCol; col++)
             {
-                particlesCount++;
+                _cells[row * cols + col]++;
             }
         }
-
-        _cells.push_back(particlesCount);
     }
 }
 
 // Render the Grid
-void Grid::render(SDL_Renderer *r, const bool isStarted)
+void Grid::render(SDL_Renderer *r, const bool isStarted) const
 {
     for (size_t i = 0; i < _grid.size(); i++)
     {
@@ -69,8 +74,9 @@ void Grid::render(SDL_Renderer *r, const bool isStarted)
 
         int c = _cells[i];
 
-        float scale = c / Globals::particlesCount * 100;
-        SDL_SetRenderDrawColor(r, 255 * scale, 255 * scale, 255 * scale, 255);
+        float scale = std::min(1.0f, c / Globals::particlesCount);
+        int value = static_cast<int>(255.0f * scale);
+        SDL_SetRenderDrawColor(r, value, value, value, 255);
 
         // if (c == 0)
         //     SDL_SetRenderDrawColor(r, 0, 0, 0, 255);

@@ -1,5 +1,10 @@
 #include "graph.h"
 
+Graph::~Graph()
+{
+    close();
+}
+
 void Graph::init()
 {
     _values = {
@@ -7,7 +12,41 @@ void Graph::init()
         {"speed", 0.0f, 200.0f},
         {"kineticEnergy", 0.0f, 1000000.0f},
         {"acceleration", 0.0f, 2000.0f},
+        {"density", 0.0f, 2000.0f},
     };
+}
+
+void Graph::init(const float sw, const float sh)
+{
+    init();
+
+    // Create the graph window
+    window = SDL_CreateWindow(
+        "Graph",
+        GRAPH_WIDTH + WINDOW_MARGIN,
+        GRAPH_HEIGHT + WINDOW_MARGIN * 2,
+        SDL_WINDOW_RESIZABLE);
+
+    // Create the renderer for graph
+    r = SDL_CreateRenderer(window, nullptr);
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+
+    // Get window ID
+    windowID = SDL_GetWindowID(window);
+
+    // Place the window at the top-left under the FPS counter
+    SDL_SetWindowPosition(window, 20, 40);
+}
+
+void Graph::handleEvent(const SDL_Event &event)
+{
+    // Ignore events if the graph is closed or the event is from another window
+    if (!window || eventWindowID(event) != windowID)
+        return;
+
+    // Close the graph if the close button is pressed
+    if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+        close();
 }
 
 void Graph::value(const std::string &id, float value)
@@ -26,12 +65,14 @@ void Graph::value(const std::string &id, float value)
     }
 }
 
-void Graph::render(SDL_Renderer *r)
+void Graph::render() const
 {
-    SDL_FRect graphBgRect = {GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT};
+    if (!window || !r)
+        return;
 
+    // Clear the graph
     _c.VeryDarkGray(r);
-    SDL_RenderFillRect(r, &graphBgRect);
+    SDL_RenderClear(r);
 
     for (size_t i = 0; i < _values.size(); i++)
     {
@@ -41,7 +82,7 @@ void Graph::render(SDL_Renderer *r)
 
         std::queue<float> temp = graphValue.values;
 
-        float x = GRAPH_X;
+        float x = 0.0f;
         float pointSize;
         int index = 0;
         int lastIndex = temp.size() - 1;
@@ -56,7 +97,7 @@ void Graph::render(SDL_Renderer *r)
             float normalized = (temp.front() - graphValue.min) / (graphValue.max - graphValue.min);
             normalized = std::clamp(normalized, 0.0f, 1.0f);
 
-            float y = GRAPH_Y + (1.0f - normalized) * (GRAPH_HEIGHT - pointSize);
+            float y = (1.0f - normalized) * (GRAPH_HEIGHT - pointSize);
 
             SDL_FRect point = {x, y, pointSize, pointSize};
             SDL_RenderFillRect(r, &point);
@@ -73,4 +114,7 @@ void Graph::render(SDL_Renderer *r)
             index++;
         }
     }
+
+    // Show the rendered graph
+    SDL_RenderPresent(r);
 }

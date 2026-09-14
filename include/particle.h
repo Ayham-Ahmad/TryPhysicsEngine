@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL3/SDL.h>
 #include <array>
+#include <vector>
 
 #include "shapes.h"
 #include "random.h"
@@ -14,13 +15,10 @@ struct RigidBody
     SDL_FPoint acceleration = {0, 0};
 
     float mass = 1.0f;
-
-    Physics2D physics2D;
 };
 
 struct ParticleObject
 {
-    Shape s;
     float radius;
     float resolution;
 
@@ -32,25 +30,32 @@ struct ParticleObject
 
 #include "collision.h"
 
+struct PhysicsStats
+{
+    float entropy = 0.0f;
+    float speed = 0.0f;
+    float kineticEnergy = 0.0f;
+    float acceleration = 0.0f;
+    float denstiy = 0.0f;
+};
+
 class Particle
 {
 private:
-    // Set particle grid properties
-    const int _particlesPerRow = 25;
-    int _spacing = 25;
-    int _startX, _startY;
-
     std::vector<ParticleObject> _particles;
-    SDL_Texture *circleTexture = nullptr;
+    mutable SDL_Texture *circleTexture = nullptr;
+    mutable int circleTextureSmoothing = -1;
 
     Collision _collision;
     Colors _colors;
 
+    SDL_Texture *getCircleTexture(SDL_Renderer *r) const;
+
 public:
     void init(SDL_Renderer *r);
     void update(const double simulationDeltaTime);
-    void render(SDL_Renderer *r);
+    void render(SDL_Renderer *r) const;
     const std::vector<ParticleObject> &getParticlesList() const;
-    const std::array<float, 3> getPhysicsValues() const;
+    PhysicsStats getPhysicsStats() const;
     void simulateEarthAndMoon(const int sw, const int sh);
 };

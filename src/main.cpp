@@ -1,18 +1,7 @@
 #include "game.h"
 
-#include "game.cpp"
-#include "panel.cpp"
-#include "particle.cpp"
-#include "collision.cpp"
-#include "physics.cpp"
-#include "grid.cpp"
-#include "graph.cpp"
-
-double deltaTime = 0.0;
-
 int main()
 {
-    // Main object
     // Initialize the main window
     Game game;
 

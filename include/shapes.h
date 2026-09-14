@@ -6,40 +6,32 @@
 
 #include "Globals.h"
 
+// Precomputed polygon data, cached per resolution
+struct ShapeData
+{
+    std::vector<SDL_FPoint> points;
+    std::vector<int> indices;
+};
+
 class Shape
 {
 public:
-    // static void triangle(
-    //     SDL_Renderer *r,
-    //     const SDL_FPoint &a,
-    //     const SDL_FPoint &b,
-    //     const SDL_FPoint &c,
-    //     const SDL_FColor &color)
-    // {
-    //     SDL_Vertex vertices[3] = {
-    //         {b, color, {0, 0}},
-    //         {a, color, {0, 0}},
-    //         {c, color, {0, 0}}};
-
-    //     SDL_RenderGeometry(r, nullptr, vertices, 3, nullptr, 0);
-    // }
-
     // Draw a shape
     static void shape(
         SDL_Renderer *r, const SDL_FPoint &position,
-        const float radius, const int8_t resolution,
+        const float radius, const int resolution,
         const SDL_FColor &color = {1.0f, 1.0f, 1.0f, 1.0f})
     {
         // Check if the resolution is valid
         if (resolution < 3)
             return;
 
-        // Get the cached shape points
-        const auto &points = getShapePoints(resolution);
+        // Get the cached shape data
+        const ShapeData &data = getShapeData(resolution);
 
-        // Create the vertices and indices
-        std::vector<SDL_Vertex> vertices(resolution + 1);
-        std::vector<int> indices(resolution * 3);
+        // Reusable vertex buffer (avoids allocating for every particle every frame)
+        static thread_local std::vector<SDL_Vertex> vertices;
+        vertices.resize(resolution + 1);
 
         // Set the center vertex
         vertices[0] = {position, color, {0, 0}};
@@ -48,28 +40,18 @@ public:
         for (int i = 0; i < resolution; ++i)
         {
             vertices[i + 1] = {
-                {position.x + points[i].x * radius,
-                 position.y + points[i].y * radius},
+                {position.x + data.points[i].x * radius,
+                 position.y + data.points[i].y * radius},
                 color,
                 {0, 0}};
-        }
-
-        // Create the triangles
-        for (int i = 0; i < resolution; ++i)
-        {
-            const int next = (i + 1) % resolution;
-
-            indices[i * 3 + 0] = 0;
-            indices[i * 3 + 1] = i + 1;
-            indices[i * 3 + 2] = next + 1;
         }
 
         // Draw the shape
         SDL_RenderGeometry(
             r, nullptr, vertices.data(),
             static_cast<int>(vertices.size()),
-            indices.data(),
-            static_cast<int>(indices.size()));
+            data.indices.data(),
+            static_cast<int>(data.indices.size()));
     }
 
     // Source - https://stackoverflow.com/a/48291620
@@ -141,35 +123,46 @@ public:
     }
 
 private:
-    // Get cached shape points
-    static const std::vector<SDL_FPoint> &getShapePoints(int resolution)
+    // Get cached shape data (points and indices)
+    static const ShapeData &getShapeData(int resolution)
     {
-        // Check if the points are already cached
-        auto cached = shapeCache.find(resolution);
-        if (cached != shapeCache.end())
+        // Check if the data is already cached
+        auto cached = _shapeDataCache.find(resolution);
+        if (cached != _shapeDataCache.end())
             return cached->second;
 
-        // Create the shape points
-        std::vector<SDL_FPoint> points;
-        points.reserve(resolution);
+        // Create the shape data
+        ShapeData data;
+        data.points.reserve(resolution);
+        data.indices.reserve(resolution * 3);
 
         // Calculate each point around the shape
         for (int i = 0; i < resolution; ++i)
         {
-            const float angle = 2.0f * Globals::pi * i / resolution;
-            points.push_back({std::cos(angle), std::sin(angle)});
+            const float angle = 2.0f * Globals::PI * i / resolution;
+            data.points.push_back({std::cos(angle), std::sin(angle)});
         }
 
-        // Store the points in the cache
-        return shapeCache.emplace(resolution, std::move(points)).first->second;
+        // Create the triangles
+        for (int i = 0; i < resolution; ++i)
+        {
+            const int next = (i + 1) % resolution;
+
+            data.indices.push_back(0);
+            data.indices.push_back(i + 1);
+            data.indices.push_back(next + 1);
+        }
+
+        // Store the data in the cache
+        return _shapeDataCache.emplace(resolution, std::move(data)).first->second;
     }
 
     // Get cached circle outline points
     static const std::vector<SDL_FPoint> &getCircleOutlinePoints(int16_t radius)
     {
         // Check if the points are already cached
-        auto cached = circleOutlineCache.find(radius);
-        if (cached != circleOutlineCache.end())
+        auto cached = _circleOutlineCache.find(radius);
+        if (cached != _circleOutlineCache.end())
             return cached->second;
 
         // Create the circle points
@@ -211,12 +204,12 @@ private:
         }
 
         // Store the points in the cache
-        return circleOutlineCache.emplace(radius, std::move(points)).first->second;
+        return _circleOutlineCache.emplace(radius, std::move(points)).first->second;
     }
 
-    // Store cached shape points
-    inline static std::unordered_map<int, std::vector<SDL_FPoint>> shapeCache;
+    // Store cached shape data
+    inline static std::unordered_map<int, ShapeData> _shapeDataCache;
 
     // Store cached circle points
-    inline static std::unordered_map<int, std::vector<SDL_FPoint>> circleOutlineCache;
+    inline static std::unordered_map<int, std::vector<SDL_FPoint>> _circleOutlineCache;
 };

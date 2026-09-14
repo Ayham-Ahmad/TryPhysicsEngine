@@ -7,32 +7,29 @@ public:
     inline static float gravity = 981.0f;
     inline static bool isGravity = true;
     inline static bool GForce = true;
-
     inline static float coefficientOfRestitution = 0.0f;
+
     inline static float particleSize = 10.0f;
     inline static float particlesCount = 100.0f;
     inline static float particlesSpacing = 25.0f;
+    inline static constexpr int PARTICLE_RESOLUTION = 32;
+    inline static float particl_mass = 1.0f;
     inline static bool particles = true;
     inline static bool random = false;
 
+    inline static bool circles = true;
     inline static float smoothingRadius = 20.0f;
 
     inline static float gridSize = 100.0f;
     inline static bool grid = false;
 
     inline static bool graph = false;
+
     inline static bool screenCollision = true;
 
     inline static double deltaTime = 0.0;
-    inline static double pi = 3.14159265358979323846;
+    inline static double PI = 3.14159265358979323846;
 
     inline static float sw;
     inline static float sh;
-
-    static void setGravity(float value) { gravity = value; }
-    static void setParticleSize(float value) { particleSize = value; }
-    static void setParticlesCount(float value) { particlesCount = value; }
-    static void setParticlesSpacing(float value) { particlesSpacing = value; }
-    static void setGrid(bool value) { grid = value; }
-    static void setDeltaTime(double value) { deltaTime = value; }
 };

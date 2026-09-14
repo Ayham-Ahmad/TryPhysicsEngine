@@ -6,7 +6,7 @@
 
 #include "colors.h"
 #include "text.h"
-#include "globals.h"
+#include "window.h"
 
 struct Slider
 {
@@ -37,56 +37,77 @@ struct Button
     float x = 0.0f;
 };
 
-class Panel
+struct PanelText
+{
+    std::string id;
+    std::string label;
+    float value = 0.0f;
+    float y = 0.0f;
+};
+
+class Panel : public Window
 {
 public:
     ~Panel();
 
     void init(float sw);
     void handleEvent(const SDL_Event &event);
-    void render(const float mouseX, const float mouseY);
+    void render(const float mouseX, const float mouseY) const;
 
     float value(const std::string &id) const;
     bool buttonValue(const std::string &id) const;
     bool btnListener(const std::string &id);
     bool sliderListener(const std::string &id);
 
+    void setText(const std::string &id, float value);
+
+    void close();
+
 private:
     // Panel layout settings
     static constexpr float PANEL_W = 400.0f;
     static constexpr float PANEL_MARGIN = 20.0f;
+    static constexpr float SECTION_SPACING = 30.0f;
+    static constexpr float PANEL_BOTTOM = 20.0f;
+
+    // Section 1: text lines
+    static constexpr float TEXT_X = 10.0f;
+    static constexpr float TEXT_TOP = 20.0f;
+    static constexpr float TEXT_SPACING = 24.0f;
+
+    // Section 2: action buttons (one line of 3)
+    static constexpr float BUTTON_H = 26.0f;
+    static constexpr float BUTTON_GAP = 8.0f;
+
+    // Section 3: checkboxes (two columns)
+    static constexpr float CHECKBOX_SIZE = 16.0f;
+    static constexpr float BUTTON_X = 20.0f;
+    static constexpr float CHECKBOX_ROW_SPACING = 40.0f;
+
+    // Section 4: sliders
     static constexpr float LABEL_X = 10.0f;
     static constexpr float SLIDER_X = 160.0f;
     static constexpr float SLIDER_H = 20.0f;
-    static constexpr float SLIDER_TOP = 20.0f;
-    static constexpr float SLIDER_SPACING = 50.0f;
-    static constexpr float PANEL_BOTTOM = 20.0f;
-    static constexpr float BUTTON_X = 20.0f;
-    static constexpr float BUTTON_H = 26.0f;
-    static constexpr float BUTTON_TOP_MARGIN = 12.0f;
-    static constexpr float SECTIONS_SPACING = 50.0f;
+    static constexpr float SLIDER_ROW_SPACING = 40.0f;
 
     // Panel helper functions
-    void close();
-    SDL_FRect knobRect(const Slider &slider) const;
-    SDL_WindowID eventWindowID(const SDL_Event &event) const;
+    static SDL_FRect knobRect(const Slider &slider);
     float panelHeight() const;
-    float sliderWidth() const;
+    static float sliderWidth();
+    static float actionButtonWidth();
+    int actionButtonCount() const;
+    static bool isActionButton(const std::string &id);
     static float normalizeValue(float value, float min, float max);
     static float keepbetween0and1(float value);
-    void handleSliderValue(Slider &slider, const SDL_Event &event);
-    void handleKnobEvent(Slider &slider, const SDL_Event &event) const;
+    static void handleSliderValue(Slider &slider, const SDL_Event &event);
+    static void handleKnobEvent(Slider &slider, const SDL_Event &event);
     void handleButtonEvent(const SDL_Event &event);
     void setValue(const std::string &id, bool value);
     void setVisibility(const std::string &id, bool visibility);
-    bool isMouseInRect(const SDL_FRect &rect, const float mouseX, const float mouseY) const;
+    static bool isMouseInRect(const SDL_FRect &rect, const float mouseX, const float mouseY);
 
-    // Store panel window and renderer
-    SDL_Window *window = nullptr;
-    SDL_Renderer *r = nullptr;
-    SDL_WindowID windowID = 0;
-
-    // Store all sliders and buttons
+    // Store all texts, sliders and buttons
+    std::vector<PanelText> _texts;
     std::vector<Slider> _sliders;
     std::vector<Button> _buttons;
 

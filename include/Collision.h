@@ -3,7 +3,7 @@
 #include <vector>
 #include <SDL3/SDL.h>
 
-#include "particle.h"
+class ParticleObject;
 
 class Collision
 {
@@ -12,8 +12,10 @@ public:
     static void checkCollisionBwteenObjAndScreen(ParticleObject &p);
 
     // Check collision between particles
-    static void checkCollisionBetweenObjs(ParticleObject& sampleParticle, std::vector<ParticleObject> &particles);
+    static void checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::vector<ParticleObject> &particles);
 
-    // Check if two particles are colliding
-    static bool collideTest(ParticleObject &a, ParticleObject &b, SDL_FPoint &difference);
+    float calculateDensity(const ParticleObject &samplePoint, const std::vector<ParticleObject> &particles) const;
+
+private:
+    static float _smoothingKernel(float radius, float dst);
 };
