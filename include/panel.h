@@ -3,6 +3,9 @@
 #include <SDL3/SDL.h>
 #include <string>
 #include <vector>
+#include <iomanip>
+#include <sstream>
+#include <cmath>
 
 #include "colors.h"
 #include "text.h"

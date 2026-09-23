@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 #include "Globals.h"
 
@@ -73,51 +74,93 @@ public:
             SDL_RenderPoint(r, cx + point.x, cy + point.y);
     }
 
-    inline static SDL_Texture *circleTexture(SDL_Renderer *r)
+    // Draw an arrow (line + V-shaped head) from `from` to `to`.
+    // If the two points coincide (zero-length, i.e. flat field) draw a small dot instead.
+    static void arrow(SDL_Renderer *r, const SDL_FPoint &from, const SDL_FPoint &to,
+                      const SDL_FColor &color = {1.0f, 1.0f, 0.0f, 1.0f})
     {
-        const int size = Globals::smoothingRadius * 2;
+        SDL_SetRenderDrawColorFloat(r, color.r, color.g, color.b, color.a);
+
+        const float dx = to.x - from.x;
+        const float dy = to.y - from.y;
+        const float length = std::sqrt(dx * dx + dy * dy);
+
+        if (length < 2.0f)
+        {
+            const SDL_FRect dot = {from.x - 1.5f, from.y - 1.5f, 3.0f, 3.0f};
+            SDL_RenderFillRect(r, &dot);
+            return;
+        }
+
+        SDL_RenderLine(r, from.x, from.y, to.x, to.y);
+
+        const float angle = std::atan2(dy, dx);
+        const float headLen = std::max(4.0f, length * 0.3f);
+        constexpr float spread = 0.42f;
+
+        SDL_RenderLine(r, to.x, to.y,
+                       to.x - headLen * std::cos(angle - spread),
+                       to.y - headLen * std::sin(angle - spread));
+        SDL_RenderLine(r, to.x, to.y,
+                       to.x - headLen * std::cos(angle + spread),
+                       to.y - headLen * std::sin(angle + spread));
+    }
+
+    // Soft glow field around a particle (premultiplied, additive so overlapping particles flow together)
+    inline static SDL_Texture *circleTexture(SDL_Renderer *r, float radius)
+    {
+        constexpr float maxRadius = 100.0f;
+
+        if (radius < 1.0f)
+            radius = 1.0f;
+
+        const int size = static_cast<int>(std::ceil(radius * 2.0f));
         SDL_Surface *surface = SDL_CreateSurface(size, size, SDL_PIXELFORMAT_RGBA32);
 
         SDL_FillSurfaceRect(surface, nullptr, SDL_MapSurfaceRGBA(surface, 0, 0, 0, 0));
 
         Uint32 *pixels = static_cast<Uint32 *>(surface->pixels);
 
-        float radius = size / 2.0f;
-        float center = radius;
+        const float center = radius;
+
+        // Peak alpha: 255 when the field is tiny, never below 100 for very large fields
+        const float peak = std::max(100.0f, 255.0f - (radius / maxRadius) * (255.0f - 100.0f));
 
         for (int y = 0; y < size; y++)
         {
             for (int x = 0; x < size; x++)
             {
-                float dx = x - center;
-                float dy = y - center;
+                const float dx = x - center;
+                const float dy = y - center;
 
-                float distance = std::sqrt(dx * dx + dy * dy);
+                const float distance = std::sqrt(dx * dx + dy * dy);
 
-                if (distance <= radius)
-                {
-                    float alpha = 255.0f;
+                if (distance > radius)
+                    continue;
 
-                    // Start fading near the edge
-                    if (distance > radius - Globals::smoothingRadius)
-                    {
-                        float t = (radius - distance) / Globals::smoothingRadius;
-                        alpha = t * 255.0f;
-                    }
+                // Smoothstep falloff so overlapping fields merge without visible boundaries
+                float t = 1.0f - distance / radius;
+                t = t * t * (3.0f - 2.0f * t);
 
-                    pixels[y * (surface->pitch / 4) + x] =
-                        SDL_MapSurfaceRGBA(
-                            surface,
-                            255,
-                            255,
-                            255,
-                            static_cast<Uint8>(alpha));
-                }
+                const float alpha = peak * t;
+
+                // Premultiplied color: the gradient rides in rgb so additive blending accumulates smoothly
+                const float premult = alpha / 255.0f;
+
+                pixels[y * (surface->pitch / 4) + x] =
+                    SDL_MapSurfaceRGBA(
+                        surface,
+                        0,
+                        static_cast<Uint8>(255.0f * premult),
+                        static_cast<Uint8>(255.0f * premult),
+                        static_cast<Uint8>(alpha));
             }
         }
 
         SDL_Texture *circleTexture = SDL_CreateTextureFromSurface(r, surface);
         SDL_DestroySurface(surface);
+
+        SDL_SetTextureBlendMode(circleTexture, SDL_BLENDMODE_ADD);
 
         return circleTexture;
     }

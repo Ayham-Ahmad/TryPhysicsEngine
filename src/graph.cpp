@@ -10,7 +10,7 @@ void Graph::init()
     _values = {
         {"entropy", 0.0f, 1.0f},
         {"speed", 0.0f, 200.0f},
-        {"kineticEnergy", 0.0f, 1000000.0f},
+        {"kineticEnergy", 0.0f, 10000000000.0f / Globals::particlesCount},
         {"acceleration", 0.0f, 2000.0f},
         {"density", 0.0f, 2000.0f},
     };
@@ -35,7 +35,7 @@ void Graph::init(const float sw, const float sh)
     windowID = SDL_GetWindowID(window);
 
     // Place the window at the top-left under the FPS counter
-    SDL_SetWindowPosition(window, 20, 40);
+    SDL_SetWindowPosition(window, 0, 80);
 }
 
 void Graph::handleEvent(const SDL_Event &event)

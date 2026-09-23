@@ -6,6 +6,7 @@
 
 #include "particle.h"
 #include "globals.h"
+#include "parallel.h"
 
 class Grid
 {

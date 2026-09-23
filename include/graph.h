@@ -12,6 +12,7 @@
 #include "colors.h"
 #include "text.h"
 #include "window.h"
+#include "globals.h"
 
 struct GraphValue
 {

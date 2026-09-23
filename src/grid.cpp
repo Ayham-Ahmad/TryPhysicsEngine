@@ -34,29 +34,57 @@ void Grid::update(const std::vector<ParticleObject> &particles)
 {
     std::fill(_cells.begin(), _cells.end(), 0);
 
+    // The debug grid is in pixels, the sim is in meters
+    const float ppu = Globals::pixelsPerMeter;
+
     int rows = (Globals::sh + Globals::gridSize - 1) / Globals::gridSize;
     int cols = (Globals::sw + Globals::gridSize - 1) / Globals::gridSize;
 
-    // Bucket each particle into the cells its bounding box overlaps
-    for (const ParticleObject &p : particles)
+    // Number of per-thread accumulators
+    unsigned threads = std::thread::hardware_concurrency();
+    if (threads == 0)
+        threads = 1;
+
+    // Every thread writes its OWN copy of the cell counts
+    std::vector<std::vector<int>> partial(threads, std::vector<int>(_cells.size(), 0));
+
+    parallelChunks(particles.size(), [&](const size_t begin, const size_t end, const unsigned threadId)
     {
-        int minRow = (p.rigidBody.position.y - p.radius) / Globals::gridSize;
-        int maxRow = (p.rigidBody.position.y + p.radius) / Globals::gridSize;
-        int minCol = (p.rigidBody.position.x - p.radius) / Globals::gridSize;
-        int maxCol = (p.rigidBody.position.x + p.radius) / Globals::gridSize;
+        std::vector<int> &cells = partial[threadId];
 
-        if (minRow < 0) minRow = 0;
-        if (maxRow >= rows) maxRow = rows - 1;
-        if (minCol < 0) minCol = 0;
-        if (maxCol >= cols) maxCol = cols - 1;
-
-        for (int row = minRow; row <= maxRow; row++)
+        for (size_t index = begin; index < end; index++)
         {
-            for (int col = minCol; col <= maxCol; col++)
+            const ParticleObject &p = particles[index];
+
+            const float px = p.position.x * ppu;
+            const float py = p.position.y * ppu;
+            const float pSize = Globals::particleSize * ppu;
+
+            int minRow = (py - pSize) / Globals::gridSize;
+            int maxRow = (py + pSize) / Globals::gridSize;
+            int minCol = (px - pSize) / Globals::gridSize;
+            int maxCol = (px + pSize) / Globals::gridSize;
+
+            if (minRow < 0) minRow = 0;
+            if (maxRow >= rows) maxRow = rows - 1;
+            if (minCol < 0) minCol = 0;
+            if (maxCol >= cols) maxCol = cols - 1;
+
+            for (int row = minRow; row <= maxRow; row++)
             {
-                _cells[row * cols + col]++;
+                for (int col = minCol; col <= maxCol; col++)
+                {
+                    cells[row * cols + col]++;
+                }
             }
         }
+    });
+
+    // Merge all threads' buckets into _cells (single threaded)
+    for (size_t i = 0; i < _cells.size(); i++)
+    {
+        for (unsigned threadId = 0; threadId < threads; threadId++)
+            _cells[i] += partial[threadId][i];
     }
 }
 

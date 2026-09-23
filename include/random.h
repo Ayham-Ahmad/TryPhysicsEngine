@@ -1,21 +1,8 @@
 #pragma once
 
-#include <random>
+#include <SDL3/SDL.h>
 
-inline std::mt19937 &generator()
+inline float randomFloat(const float min, const float max)
 {
-    static std::mt19937 engine{std::random_device{}()};
-    return engine;
-}
-
-inline int randomInt(int min, int max)
-{
-    std::uniform_int_distribution<int> distribution(min, max);
-    return distribution(generator());
-}
-
-inline float randomFloat(float min, float max)
-{
-    std::uniform_real_distribution<float> distribution(min, max);
-    return distribution(generator());
+    return min + SDL_randf() * (max - min);
 }

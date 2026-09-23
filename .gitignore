@@ -2,3 +2,5 @@
 build.bat
 obj/
 *.mp4
+Makefile
+REFACTOR_PLAN.md

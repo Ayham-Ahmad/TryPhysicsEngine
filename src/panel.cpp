@@ -1,7 +1,16 @@
 #include "panel.h"
 
-#include <iomanip>
-#include <sstream>
+std::string sliderValueText(const float value)
+{
+    std::ostringstream ss;
+
+    if (value == std::floor(value) && std::fabs(value) < 1000000.0f)
+        ss << static_cast<int>(value);
+    else
+        ss << std::setprecision(3) << value;
+
+    return ss.str();
+}
 
 Panel::~Panel()
 {
@@ -21,13 +30,16 @@ void Panel::init(float sw)
 
     // Initialize the sliders: {id, initValue, min, max, listener}
     _sliders = {
-        {"speed", 1.0f, 0.1f, 10.0f, false},
-        {"gravity", 981.0f, 0.0f, 5000.0f, false},
-        {"count", 100.0f, 1.0f, 2000.0f, true},
-        {"spacing", 25.0f, 5.0f, 200.0f, true},
-        {"size", 10.0f, 1.0f, 50.0f, true},
+{"speed", 1.0f, 0.1f, 3.0f, false},
+        {"gravity", 9.8f, 0.0f, 100.0f, false},
+        {"count", 400.0f, 1.0f, 10000.0f, true},
+        {"spacing", 0.02f, 0.005f, 0.05f, true},
+        {"size", 10.0f, 0.002f, 0.02f, true},
         {"gridSize", 100.0f, 1.0f, 250.0f, true},
-        {"smoothingRadius", 20, 1, 200, true},
+        {"smoothingRadius", 0.5f, 0.01f, 1.0f, true},
+        {"mass", 0.4f, 0.05f, 2.0f, true},
+        {"targetDensity", 1000.0f, 500.0f, 2000.0f, true},
+        {"pressure", 0.5f, 0.0f, 10.0f, true},
     };
 
     // Initialize the buttons: {id, text, value, visibility, listener}
@@ -37,12 +49,13 @@ void Panel::init(float sw)
         {"pause", "Pause", false, false},
         {"grid", "Grid", false, true},
         {"graph", "Graph", false, true},
-        {"gravity", "Gravity", true, true},
-        {"gforce", "GForce", true, true},
+        {"gravity", "Gravity", false, true},
         {"screenCollision", "Screen Collision", true, true},
         {"particles", "Show Particles", true, true},
         {"circles", "Render Circles", true, true},
-        {"random", "random", false, true, true},
+        {"gradientArrows", "Gradient Arrows", false, true},
+        {"speedColoring", "Speed Colors", true, true},
+        {"random", "random", true, true, true},
     };
 
     // --- Layout top to bottom: texts, action buttons, checkboxes, sliders ---
@@ -265,7 +278,7 @@ void Panel::render(const float mouseX, const float mouseY) const
 
         // Draw the slider label and value
         drawText(r, s.id, LABEL_X, s.y, 14);
-        drawText(r, (int)value(s.id), knob.x, knob.y - 14.0f, 10);
+        drawText(r, sliderValueText(value(s.id)), knob.x, knob.y - 14.0f, 10);
     }
 
     // Show the rendered panel

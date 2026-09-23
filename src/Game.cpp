@@ -49,6 +49,7 @@ void Game::init()
     Globals::particleSize = _panel.value("size");
     Globals::gridSize = _panel.value("gridSize");
     Globals::smoothingRadius = _panel.value("smoothingRadius");
+    Globals::particl_mass = _panel.value("mass");
 
     // Initialize particles
     _particles.init(r);
@@ -83,7 +84,7 @@ void Game::_updateFPS()
 // --- Display the FPS on the screen ---
 void Game::_showFPS() const
 {
-    drawText(r, "FPS: " + std::to_string(_displayedFPS), 10, 10, 25);
+    drawText(r, "FPS: " + std::to_string(_displayedFPS), 10, 10, 25, {255, 0, 0, 255});
 }
 
 // --- clear and present ---
@@ -128,10 +129,11 @@ void Game::_listener()
     Globals::grid = _panel.buttonValue("grid");
     Globals::graph = _panel.buttonValue("graph");
     Globals::isGravity = _panel.buttonValue("gravity");
-    Globals::GForce = _panel.buttonValue("gforce");
     Globals::screenCollision = _panel.buttonValue("screenCollision");
     Globals::particles = _panel.buttonValue("particles");
     Globals::circles = _panel.buttonValue("circles");
+    Globals::gradientArrows = _panel.buttonValue("gradientArrows");
+    Globals::speedColoring = _panel.buttonValue("speedColoring");
     Globals::random = _panel.buttonValue("random");
 
     // Open or close the graph window when the graph toggle changes
@@ -181,6 +183,24 @@ void Game::_listener()
         Globals::smoothingRadius = _panel.value("smoothingRadius");
     }
 
+    // Update particle mass if changed (applies live to the equations)
+    if (_panel.sliderListener("mass"))
+    {
+        Globals::particl_mass = _panel.value("mass");
+    }
+
+    // Update the target density used by pressure calculations
+    if (_panel.sliderListener("targetDensity"))
+    {
+        Globals::targetDensity = _panel.value("targetDensity");
+    }
+
+    // Update the pressure multiplier used by pressure calculations
+    if (_panel.sliderListener("pressure"))
+    {
+        Globals::pressureMultiplier = _panel.value("pressure");
+    }
+
     // Randomize the particles positions
     if (_panel.btnListener("random"))
     {
@@ -213,8 +233,10 @@ void Game::update()
 
     _accumulator += Globals::deltaTime * _panel.value("speed");
 
-    if (_accumulator > STEP_TIME * 10.0)
-        _accumulator = STEP_TIME * 10.0;
+    // Guard against the spiral of death, but keep enough headroom that the speed
+    // slider still scales (cap of 10 steps/frame throttled high speeds at low FPS).
+    if (_accumulator > STEP_TIME * 120.0)
+        _accumulator = STEP_TIME * 120.0;
 
     Globals::gravity = _panel.value("gravity");
 
@@ -262,8 +284,7 @@ void Game::render()
         _grid.render(r, _panel.buttonValue("start"));
 
     // Render particles
-    if (Globals::particles)
-        _particles.render(r);
+    _particles.render(r);
 
     // Render panel (capped)
     _panelTimer += Globals::deltaTime;

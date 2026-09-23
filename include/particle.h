@@ -1,31 +1,19 @@
 #pragma once
 #include <SDL3/SDL.h>
-#include <array>
 #include <vector>
 
 #include "shapes.h"
 #include "random.h"
 #include "physics.h"
 #include "colors.h"
+#include "parallel.h"
+#include "spatialhash.h"
 
-struct RigidBody
+struct ParticleObject
 {
     SDL_FPoint position;
     SDL_FPoint velocity = {0, 0};
     SDL_FPoint acceleration = {0, 0};
-
-    float mass = 1.0f;
-};
-
-struct ParticleObject
-{
-    float radius;
-    float resolution;
-
-    RigidBody rigidBody;
-
-    SDL_FColor color;
-    SDL_Rect bounds{};
 };
 
 #include "collision.h"
@@ -39,23 +27,38 @@ struct PhysicsStats
     float denstiy = 0.0f;
 };
 
+// A single arrow on the gradient field; tip == pos means "draw a dot" (zero magnitude)
+struct GridArrow
+{
+    SDL_FPoint pos;
+    SDL_FPoint tip;
+};
+
 class Particle
 {
 private:
     std::vector<ParticleObject> _particles;
+    std::vector<float> _densities;
+    // Scratch positions (meters) the spatial hash is rebuilt from every step
+    std::vector<SDL_FPoint> _positions;
+    SpatialHash _spatialHash;
     mutable SDL_Texture *circleTexture = nullptr;
-    mutable int circleTextureSmoothing = -1;
+    mutable float circleTextureSmoothing = -1.0f;
+    mutable float circleTextureParticleSize = -1.0f;
+    mutable float _arrowRefreshTimer = 0.0f;
+    mutable std::vector<GridArrow> _arrowCache;
 
     Collision _collision;
-    Colors _colors;
 
     SDL_Texture *getCircleTexture(SDL_Renderer *r) const;
+    void refreshGradientArrows() const;
 
 public:
+    ~Particle();
+
     void init(SDL_Renderer *r);
     void update(const double simulationDeltaTime);
     void render(SDL_Renderer *r) const;
     const std::vector<ParticleObject> &getParticlesList() const;
     PhysicsStats getPhysicsStats() const;
-    void simulateEarthAndMoon(const int sw, const int sh);
 };

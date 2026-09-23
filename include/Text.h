@@ -88,8 +88,7 @@ inline void drawText(SDL_Renderer *r,
                      float x = 100.0f, float y = 100.0f,
                      int fontSize = 10,
                      SDL_Color color = {255, 255, 255, 255},
-                     float w = 0.0f, float h = 0.0f,
-                     const std::string &fontPath = "assets/Roboto-Medium.ttf")
+                     float w = 0.0f, float h = 0.0f)
 {
     if (!r || text.empty())
         return;
@@ -171,10 +170,9 @@ inline void drawText(SDL_Renderer *r,
                      float x = 100.0f, float y = 100.0f,
                      int fontSize = 10,
                      float w = 0.0f, float h = 0.0f,
-                     SDL_Color color = {255, 255, 255, 255},
-                     const std::string &fontPath = "assets/Roboto-Medium.ttf")
+                     SDL_Color color = {255, 255, 255, 255})
 {
-    drawText(r, std::to_string(value), x, y, fontSize, color, w, h, fontPath);
+    drawText(r, std::to_string(value), x, y, fontSize, color, w, h);
 }
 
 // Draw text using an int
@@ -183,18 +181,7 @@ inline void drawText(SDL_Renderer *r,
                      float x = 100.0f, float y = 100.0f,
                      int fontSize = 10,
                      float w = 0.0f, float h = 0.0f,
-                     SDL_Color color = {255, 255, 255, 255},
-                     const std::string &fontPath = "assets/Roboto-Medium.ttf")
+                     SDL_Color color = {255, 255, 255, 255})
 {
-    drawText(r, std::to_string(value), x, y, fontSize, color, w, h, fontPath);
-}
-
-// Show the X and Y position
-inline void showXAndYPosition(SDL_Renderer *r, const float &x, const float &y, int xAdjustment = 0, int yAdjustment = -20)
-{
-    drawText(
-        r,
-        "(" + std::to_string(static_cast<int>(x)) + ", " +
-            std::to_string(static_cast<int>(y)) + ")",
-        x + xAdjustment, y + yAdjustment, 10);
+    drawText(r, std::to_string(value), x, y, fontSize, color, w, h);
 }

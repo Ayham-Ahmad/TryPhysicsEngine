@@ -3,9 +3,6 @@
 #include <cmath>
 #include <SDL3/SDL.h>
 
-#include "particle.h"
-
-class ParticleObject;
 class Physics2D
 {
 public:
@@ -18,5 +15,4 @@ public:
     static float getVelocityAlongCollisionNormal(const SDL_FPoint &relativeVelocity, const SDL_FPoint &collisionNormal) noexcept;
     static float getCollisionImpulseMagnitude(float restitution, float velocityAlongNormal, float firstMass, float secondMass) noexcept;
     static SDL_FPoint getCollisionImpulseVector(const SDL_FPoint &collisionNormal, float impulseMagnitude) noexcept;
-    static void applyGforce(ParticleObject &a, const ParticleObject &b) noexcept;
 };

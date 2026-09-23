@@ -1,56 +1,63 @@
 #include "collision.h"
 #include "particle.h"
+#include "spatialhash.h"
 
 // Check collision with the screen
-void Collision::checkCollisionBwteenObjAndScreen(ParticleObject &p)
+void Collision::checkCollisionBetweenObjAndScreen(ParticleObject &p)
 {
+    const float pSize = Globals::particleSize;
+
+    // Sim runs in meters; the screen (pixels) is the world boundary
+    const float worldW = Globals::sw / Globals::pixelsPerMeter;
+    const float worldH = Globals::sh / Globals::pixelsPerMeter;
+
     if (Globals::screenCollision)
     {
         // Vertical collision
-        if (p.rigidBody.position.y + p.radius > Globals::sh)
+        if (p.position.y + pSize > worldH)
         {
-            p.rigidBody.position.y = Globals::sh - p.radius;
+            p.position.y = worldH - pSize;
 
-            if (p.rigidBody.velocity.y > 0.0f)
-                p.rigidBody.velocity.y *= -Globals::coefficientOfRestitution;
+            if (p.velocity.y > 0.0f)
+                p.velocity.y *= -Globals::coefficientOfRestitution;
         }
-        else if (p.rigidBody.position.y - p.radius < 0.0f)
+        else if (p.position.y - pSize < 0.0f)
         {
-            p.rigidBody.position.y = p.radius;
+            p.position.y = pSize;
 
-            if (p.rigidBody.velocity.y < 0.0f)
-                p.rigidBody.velocity.y *= -Globals::coefficientOfRestitution;
+            if (p.velocity.y < 0.0f)
+                p.velocity.y *= -Globals::coefficientOfRestitution;
         }
 
         // Horizontal collision
-        if (p.rigidBody.position.x + p.radius > Globals::sw)
+        if (p.position.x + pSize > worldW)
         {
-            p.rigidBody.position.x = Globals::sw - p.radius;
+            p.position.x = worldW - pSize;
 
-            if (p.rigidBody.velocity.x > 0.0f)
-                p.rigidBody.velocity.x *= -Globals::coefficientOfRestitution;
+            if (p.velocity.x > 0.0f)
+                p.velocity.x *= -Globals::coefficientOfRestitution;
         }
-        else if (p.rigidBody.position.x - p.radius < 0.0f)
+        else if (p.position.x - pSize < 0.0f)
         {
-            p.rigidBody.position.x = p.radius;
+            p.position.x = pSize;
 
-            if (p.rigidBody.velocity.x < 0.0f)
-                p.rigidBody.velocity.x *= -Globals::coefficientOfRestitution;
+            if (p.velocity.x < 0.0f)
+                p.velocity.x *= -Globals::coefficientOfRestitution;
         }
     }
     else
     {
         // Vertical screen wrapping
-        if (p.rigidBody.position.y - p.radius > Globals::sh)
-            p.rigidBody.position.y = -p.radius;
-        else if (p.rigidBody.position.y + p.radius < 0.0f)
-            p.rigidBody.position.y = Globals::sh + p.radius;
+        if (p.position.y - pSize > worldH)
+            p.position.y = -pSize;
+        else if (p.position.y + pSize < 0.0f)
+            p.position.y = worldH + pSize;
 
         // Horizontal screen wrapping
-        if (p.rigidBody.position.x - p.radius > Globals::sw)
-            p.rigidBody.position.x = -p.radius;
-        else if (p.rigidBody.position.x + p.radius < 0.0f)
-            p.rigidBody.position.x = Globals::sw + p.radius;
+        if (p.position.x - pSize > worldW)
+            p.position.x = -pSize;
+        else if (p.position.x + pSize < 0.0f)
+            p.position.x = worldW + pSize;
     }
 }
 
@@ -63,10 +70,10 @@ void Collision::checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::v
             continue;
 
         // Calculate the difference and squared distance between the positions
-        float dx = p.rigidBody.position.x - sampleParticle.rigidBody.position.x;
-        float dy = p.rigidBody.position.y - sampleParticle.rigidBody.position.y;
+        float dx = p.position.x - sampleParticle.position.x;
+        float dy = p.position.y - sampleParticle.position.y;
 
-        float radiusSum = sampleParticle.radius + p.radius;
+        float radiusSum = Globals::particleSize + Globals::particleSize;
         float squaredDistance = dx * dx + dy * dy;
 
         if (squaredDistance > radiusSum * radiusSum || squaredDistance == 0.0f)
@@ -78,20 +85,20 @@ void Collision::checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::v
         SDL_FPoint normal = {dx / distance, dy / distance};
 
         // Calculate the overlap
-        float overlap = Physics2D::getOverlapBetweenTwoObjects(sampleParticle.radius, p.radius, distance);
+        float overlap = Physics2D::getOverlapBetweenTwoObjects(Globals::particleSize, Globals::particleSize, distance);
 
         // Move the particles apart
-        sampleParticle.rigidBody.position.x -= normal.x * overlap * 0.5f;
-        sampleParticle.rigidBody.position.y -= normal.y * overlap * 0.5f;
+        sampleParticle.position.x -= normal.x * overlap * 0.5f;
+        sampleParticle.position.y -= normal.y * overlap * 0.5f;
 
-        p.rigidBody.position.x += normal.x * overlap * 0.5f;
-        p.rigidBody.position.y += normal.y * overlap * 0.5f;
+        p.position.x += normal.x * overlap * 0.5f;
+        p.position.y += normal.y * overlap * 0.5f;
 
         // Calculate relative velocity
         SDL_FPoint relativeVelocity =
             Physics2D::getRelativeVelocityBetweenTwoObjects(
-                sampleParticle.rigidBody.velocity,
-                p.rigidBody.velocity);
+                sampleParticle.velocity,
+                p.velocity);
 
         // Calculate velocity along the collision normal
         float velocityAlongNormal =
@@ -107,8 +114,8 @@ void Collision::checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::v
         float impulseMagnitude = Physics2D::getCollisionImpulseMagnitude(
             Globals::coefficientOfRestitution,
             velocityAlongNormal,
-            sampleParticle.rigidBody.mass,
-            p.rigidBody.mass);
+            Globals::particleMass,
+            Globals::particleMass);
 
         // Calculate the impulse vector
         SDL_FPoint impulse =
@@ -116,33 +123,86 @@ void Collision::checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::v
                 normal,
                 impulseMagnitude);
 
-        // Apply the impulse to the first particle
-        sampleParticle.rigidBody.velocity.x -= impulse.x / sampleParticle.rigidBody.mass;
-        sampleParticle.rigidBody.velocity.y -= impulse.y / sampleParticle.rigidBody.mass;
+        // Apply the impulse to both particles (mass comes from the global)
+        sampleParticle.velocity.x -= impulse.x / Globals::particleMass;
+        sampleParticle.velocity.y -= impulse.y / Globals::particleMass;
 
         // Apply the impulse to the second particle
-        p.rigidBody.velocity.x += impulse.x / p.rigidBody.mass;
-        p.rigidBody.velocity.y += impulse.y / p.rigidBody.mass;
+        p.velocity.x += impulse.x / Globals::particleMass;
+        p.velocity.y += impulse.y / Globals::particleMass;
     }
 }
 
-float Collision::_smoothingKernel(float radius, float dst)
+float Collision::calculateDensity(const SDL_FPoint &samplePointPosition, const SpatialHash &spatialHash) const
 {
-    float volume = Globals::PI * std::pow(radius, 8) / 4;
-    float value = std::max(0.0f, radius * radius - dst * dst);
-    return value * value * value  / volume;
-}
+    const float radius = Globals::smoothingRadius;
+    const float radiusFourth = radius * radius * radius * radius;
+    const float inverseVolume = 6.0f / static_cast<float>(Globals::PI * radiusFourth);
 
-float Collision::calculateDensity(const ParticleObject &samplePoint, const std::vector<ParticleObject> &particles) const
-{
     float density = 0;
 
-    for (const ParticleObject &p : particles)
+    // Only the neighbours inside the smoothing radius contribute (kernel is 0 beyond).
+    // The kernel only needs the distance, which the hash query already provides.
+    spatialHash.forEachPointWithinRadius(samplePointPosition, [&](const size_t index, const float sqrDst)
     {
-        float dst = Physics2D::distance(samplePoint.rigidBody.position, p.rigidBody.position);
-        float influence = _smoothingKernel(Globals::smoothingRadius, dst);
-        density += p.rigidBody.mass * influence;
-    }
+        const float d = radius - std::sqrt(sqrDst);
+        density += Globals::particleMass * d * d * inverseVolume;
+    });
 
     return density;
+}
+
+SDL_FPoint Collision::calculatePressureForce(const SDL_FPoint &samplePointPosition, const float sampleDensity, const std::vector<SDL_FPoint> &positions, const std::vector<float> &densities, const SpatialHash &spatialHash) const
+{
+    SDL_FPoint pressureForce = {0, 0};
+
+    const float radius = Globals::smoothingRadius;
+    const float radiusFourth = radius * radius * radius * radius;
+    const float derivativeScale = 12.0f / static_cast<float>(Globals::PI * radiusFourth);
+
+    spatialHash.forEachPointWithinRadius(samplePointPosition, [&](const size_t index, const float sqrDst)
+    {
+        const float dst = std::sqrt(sqrDst);
+
+        // Skip overlapping particles (the sampling particle itself, at exactly 0)
+        if (dst < 1e-4f)
+            return;
+
+        const float density = densities[index];
+        const float sharedPressure = _calculateSharedPressure(sampleDensity, density);
+
+        const SDL_FPoint &p = positions[index];
+
+        // dir points from the sample point toward the particle, same as the video's
+        // offset / dst = (positions[other] - positions[self]) / d
+        const float dx = p.x - samplePointPosition.x;
+        const float dy = p.y - samplePointPosition.y;
+        const SDL_FPoint dir = {dx / dst, dy / dst};
+
+        // slope is negative inside the radius, so the term below pushes the sampling
+        // particle away from compressed neighbours (a repulsive pressure force)
+        const float slope = (dst - radius) * derivativeScale;
+
+        // Video form, verbatim: pressureForce += sharedPressure * dir * slope * mass / ρ_j.
+        // The caller divides this whole gradient by the sampling particle's own ρ_i.
+        pressureForce.x += -sharedPressure * dir.x * slope * Globals::particleMass / density;
+        pressureForce.y += -sharedPressure * dir.y * slope * Globals::particleMass / density;
+    });
+
+    return pressureForce;
+}
+
+float Collision::_calculateSharedPressure(const float densityA, const float densityB) const
+{
+    const float pressureA = _convertDensityToPressure(densityA);
+    const float pressureB = _convertDensityToPressure(densityB);
+
+    return (pressureA + pressureB) * 0.5f;
+}
+
+float Collision::_convertDensityToPressure(float density) const
+{
+    float densityError = density - Globals::targetDensity;
+    float pressure = densityError * Globals::pressureMultiplier;
+    return pressure;
 }

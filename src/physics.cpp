@@ -57,27 +57,3 @@ SDL_FPoint Physics2D::getCollisionImpulseVector(const SDL_FPoint &collisionNorma
         collisionNormal.x * impulseMagnitude,
         collisionNormal.y * impulseMagnitude};
 }
-
-void Physics2D::applyGforce(ParticleObject &a, const ParticleObject &b) noexcept
-{
-    SDL_FPoint difference = Physics2D::differenceVector(
-        a.rigidBody.position,
-        b.rigidBody.position);
-
-    float distance = Physics2D::distance(a.rigidBody.position, b.rigidBody.position);
-
-    if (distance == 0.0f)
-        return;
-
-    float minimumDistance = a.radius + b.radius;
-
-    if (distance < minimumDistance)
-        distance = minimumDistance;
-
-    SDL_FPoint direction = Physics2D::direction(difference, distance);
-
-    float acc = (Globals::gravity * b.rigidBody.mass) / (distance * distance);
-
-    a.rigidBody.acceleration.x -= acc * direction.x;
-    a.rigidBody.acceleration.y -= acc * direction.y;
-}
