@@ -1,8 +1,16 @@
 #pragma once
 
 #include <cmath>
+#include <vector>
 #include <SDL3/SDL.h>
+#include <algorithm>
 
+#include "particleobject.h"
+#include "globals.h"
+
+class ParticleObject;
+
+// 2D collision response math used by the contact resolution
 class Physics2D
 {
 public:
@@ -15,4 +23,10 @@ public:
     static float getVelocityAlongCollisionNormal(const SDL_FPoint &relativeVelocity, const SDL_FPoint &collisionNormal) noexcept;
     static float getCollisionImpulseMagnitude(float restitution, float velocityAlongNormal, float firstMass, float secondMass) noexcept;
     static SDL_FPoint getCollisionImpulseVector(const SDL_FPoint &collisionNormal, float impulseMagnitude) noexcept;
+
+    // Check collision with the screen
+    static void checkCollisionBetweenObjAndScreen(ParticleObject &p);
+
+    // Check collision between particles
+    static void checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::vector<ParticleObject> &particles);
 };

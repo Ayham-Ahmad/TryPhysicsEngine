@@ -2,60 +2,32 @@
 #include <SDL3/SDL.h>
 #include <vector>
 
+#include "particleobject.h"
 #include "shapes.h"
 #include "random.h"
 #include "physics.h"
 #include "colors.h"
-#include "parallel.h"
 #include "spatialhash.h"
-
-struct ParticleObject
-{
-    SDL_FPoint position;
-    SDL_FPoint velocity = {0, 0};
-    SDL_FPoint acceleration = {0, 0};
-};
-
-#include "collision.h"
-
-struct PhysicsStats
-{
-    float entropy = 0.0f;
-    float speed = 0.0f;
-    float kineticEnergy = 0.0f;
-    float acceleration = 0.0f;
-    float denstiy = 0.0f;
-};
-
-// A single arrow on the gradient field; tip == pos means "draw a dot" (zero magnitude)
-struct GridArrow
-{
-    SDL_FPoint pos;
-    SDL_FPoint tip;
-};
+#include "fluid.h"
+#include "fieldrenderer.h"
 
 class Particle
 {
 private:
     std::vector<ParticleObject> _particles;
     std::vector<float> _densities;
-    // Scratch positions (meters) the spatial hash is rebuilt from every step
     std::vector<SDL_FPoint> _positions;
     SpatialHash _spatialHash;
-    mutable SDL_Texture *circleTexture = nullptr;
-    mutable float circleTextureSmoothing = -1.0f;
-    mutable float circleTextureParticleSize = -1.0f;
-    mutable float _arrowRefreshTimer = 0.0f;
-    mutable std::vector<GridArrow> _arrowCache;
+    mutable Shape::GlowCache _glow;
 
-    Collision _collision;
+    Fluid _fluid;
+    FieldRenderer _fieldRenderer;
 
-    SDL_Texture *getCircleTexture(SDL_Renderer *r) const;
-    void refreshGradientArrows() const;
+    // Cached metrics; recomputed at most ~10Hz (see getPhysicsStats)
+    mutable PhysicsStats _cachedStats;
+    mutable float _statsTimer = 0.0f;
 
 public:
-    ~Particle();
-
     void init(SDL_Renderer *r);
     void update(const double simulationDeltaTime);
     void render(SDL_Renderer *r) const;

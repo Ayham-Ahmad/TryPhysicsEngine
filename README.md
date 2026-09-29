@@ -1,6 +1,6 @@
-# Simple Pyshics Enginee
+# Simple Physics Engine
 
-A small C++ physics sandbox built with C++ and SDL3.
+A small 2D fluid-physics sandbox built with C++ and SDL3.
 
 ## Setup and Run
 
@@ -15,11 +15,11 @@ git clone https://github.com/Ayham-Ahmad/TryPhysicsEngine.git
 cd TryPhysicsEngine
 ```
 
-4. Update the SDL paths in `build.bat` if they are different on your computer.
-5. Build the project:
+4. Update the SDL include paths in `Makefile` if they are different on your computer.
+5. Build the project with `make` (or run `build.bat` which wraps it):
 
 ```bash
-build.bat
+make
 ```
 
 6. Run the application:
@@ -28,57 +28,53 @@ build.bat
 main.exe
 ```
 
-## First Step
+## Control Panel
 
-The first thing we did is to create a circle using triangles, so we use SDL_RenderGeometry() for it.
+A second window lets you tune the simulation live:
 
-![First shape-generation test](images/step1.png)
+- **Buttons** (toggle checkboxes): draw the occupancy grid, open the metrics graph,
+  enable gravity, screen-boundary handling, particles, the soft glow circles,
+  gradient arrows, and speed-based colouring.
+- **Start / Pause / Reset** control the simulation. While running, the sliders are
+  locked so the fluid stays consistent; press Reset to apply new values.
+- **Sliders**: particle count, spacing, size, grid size, smoothing radius, particle
+  mass, target density, pressure multiplier, and simulation speed.
 
-## Second Step: Gravity
+## Smooth-Particle Hydrodynamics
 
-The second step adds gravity so particles accelerate and fall over time.
+The fluid is simulated with SPH, ported line-for-line from Sebastian Lague's
+*"Coding Adventure: Simulating Fluids"* video:
 
-![Gravity simulation](images/gravity.gif)
-
-## Third Step: Collision
-
-The third step adds collisions between particles and the screen boundaries. The current step can run up to only a *1,000* particles at 60 FPS.
-
-This step collision method checks every particle against every other particle to find collisions. It also checks every particle against the screen boundaries on each update.
-
-![Collision simulation](images/collision.gif)
-
-And this is the third step collision equations:
-
-![Collision equations](images/collisionExplaination.png)
-
-## Fourth Step: Gravitational Force
-
-In this step, gravitational force was added to simulate the orbit of the Moon around the Earth.
-
-The gravitational acceleration acting on object **A** due to object **B** is calculated using Newton's law of universal gravitation:
-
-$$
-a = \frac{Gm_b}{r^2}
-$$
-
-Where:
-
-* \(a\) = gravitational acceleration acting on object A
-* \(G\) = gravitational constant used in the simulation
-* \(m_b\) = mass of object B
-* \(r\) = distance between the two objects
+- **Density** — each particle's density is accumulated from its neighbours using a
+  kernel that falls to zero at the smoothing radius:
 
 ```cpp
-float acc = (Globals::gravity * Globals::particl_mass) / (distance * distance);
+density += mass * (radius - dist)² * 6 / (π · radius⁴)
 ```
 
-The acceleration is then applied in the direction of object B, causing the Moon to orbit the Earth.
+- **Pressure force** — density error against the rest density is converted to a
+  pressure, then shared between neighbours. The pressure-gradient force pushes
+  compressed particles apart:
 
-![Earth and moon simulation](images/earthAndMoongif.gif)
+```cpp
+densityError = density - targetDensity;
+pressure = clamp(densityError * pressureMultiplier, 0, ∞);
+```
 
+- A neighbour-search **spatial hash** keeps the density/pressure sweeps O(n · k)
+  instead of O(n²), so the sim stays near real-time up to ~1000+ particles.
+
+## Rendering
+
+- Particles (instanced polygons via `SDL_RenderGeometry`) with either speed-based
+  or pressure-based colouring.
+- Soft additive glow around each particle, batched into a single textured geometry
+  draw (one draw call for the whole field).
+- Optional gradient-arrow field that samples the pressure gradient once per frame.
+- Metrics graph (entropy, average speed, kinetic energy, acceleration, density) with
+  a ring-buffer history.
 
 ## Libraries
 
 - [SDL3](https://github.com/libsdl-org/SDL): window creation, rendering, input, and geometry drawing.
-- [SDL3_ttf](https://github.com/libsdl-org/SDL_ttf): TrueType font support for on-screen te
+- [SDL3_ttf](https://github.com/libsdl-org/SDL_ttf): TrueType font support for on-screen text.

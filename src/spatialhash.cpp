@@ -36,14 +36,14 @@ void SpatialHash::update(const std::vector<SDL_FPoint> &points, const float radi
     _startIndices.resize(count);
 
     // Build the (unordered) lookup and reset all start indices
-    parallelFor(count, [&](const size_t i)
+    for (size_t i = 0; i < count; i++)
     {
         const auto [cellX, cellY] = positionToCellCoord(points[i], radius);
         _lookup[i] = {
             static_cast<int>(i),
             getKeyFromHash(hashCell(cellX, cellY))};
         _startIndices[i] = UINT32_MAX;
-    });
+    }
 
     // Sort by cell key so the entries of one cell are contiguous
     std::sort(_lookup.begin(), _lookup.end(), [](const Entry &a, const Entry &b)
@@ -52,14 +52,13 @@ void SpatialHash::update(const std::vector<SDL_FPoint> &points, const float radi
     });
 
     // The first entry of each unique cell key becomes that key's start index.
-    // Every contiguous run of equal keys writes only its own unique slot, so the
-    // parallel writes never race.
-    parallelFor(count, [&](const size_t i)
+    // Every contiguous run of equal keys writes only its own unique slot.
+    for (size_t i = 0; i < count; i++)
     {
         const uint32_t key = _lookup[i].cellKey;
         const uint32_t keyPrev = (i == 0) ? UINT32_MAX : _lookup[i - 1].cellKey;
 
         if (key != keyPrev)
             _startIndices[key] = static_cast<uint32_t>(i);
-    });
+    }
 }

@@ -2,7 +2,6 @@
 
 #include "SDL3/SDL.h"
 
-#include <queue>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -19,7 +18,12 @@ struct GraphValue
     std::string id;
     float min;
     float max;
-    std::queue<float> values;
+
+    // Ring buffer of recent samples: values holds a fixed number of slots,
+    // oldest sample is at _head, newest at (head + size - 1) % capacity.
+    std::vector<float> values;
+    size_t head = 0;
+    size_t size = 0;
 };
 
 class Graph : public Window
@@ -44,13 +48,13 @@ private:
     };
 
     std::vector<GraphValue> _values;
-    Colors _c;
 
 public:
     ~Graph();
 
     void init();
     void init(float sw, float sh);
+    void updateLimits();
 
     void handleEvent(const SDL_Event &event);
     void value(const std::string &id, float value);

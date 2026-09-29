@@ -54,6 +54,7 @@ public:
     ~Panel();
 
     void init(float sw);
+    void init();
     void handleEvent(const SDL_Event &event);
     void render(const float mouseX, const float mouseY) const;
 
@@ -101,7 +102,7 @@ private:
     int actionButtonCount() const;
     static bool isActionButton(const std::string &id);
     static float normalizeValue(float value, float min, float max);
-    static float keepbetween0and1(float value);
+    static float clamp01(float value);
     static void handleSliderValue(Slider &slider, const SDL_Event &event);
     static void handleKnobEvent(Slider &slider, const SDL_Event &event);
     void handleButtonEvent(const SDL_Event &event);
@@ -113,6 +114,4 @@ private:
     std::vector<PanelText> _texts;
     std::vector<Slider> _sliders;
     std::vector<Button> _buttons;
-
-    Colors c;
 };

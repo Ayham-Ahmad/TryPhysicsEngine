@@ -1,7 +1,7 @@
 #include "grid.h"
 
 // Initialize grid
-void Grid::initialize()
+void Grid::init()
 {
     float GRID_SIZE = Globals::gridSize;
 
@@ -34,83 +34,84 @@ void Grid::update(const std::vector<ParticleObject> &particles)
 {
     std::fill(_cells.begin(), _cells.end(), 0);
 
-    // The debug grid is in pixels, the sim is in meters
     const float ppu = Globals::pixelsPerMeter;
 
-    int rows = (Globals::sh + Globals::gridSize - 1) / Globals::gridSize;
-    int cols = (Globals::sw + Globals::gridSize - 1) / Globals::gridSize;
+    const float GRID_SIZE = Globals::gridSize;
 
-    // Number of per-thread accumulators
-    unsigned threads = std::thread::hardware_concurrency();
-    if (threads == 0)
-        threads = 1;
+    int rows = (Globals::sh + GRID_SIZE - 1) / GRID_SIZE;
+    int cols = (Globals::sw + GRID_SIZE - 1) / GRID_SIZE;
 
-    // Every thread writes its OWN copy of the cell counts
-    std::vector<std::vector<int>> partial(threads, std::vector<int>(_cells.size(), 0));
-
-    parallelChunks(particles.size(), [&](const size_t begin, const size_t end, const unsigned threadId)
+    for (size_t index = 0; index < particles.size(); index++)
     {
-        std::vector<int> &cells = partial[threadId];
+        const ParticleObject &p = particles[index];
 
-        for (size_t index = begin; index < end; index++)
+        const float px = p.position.x * ppu;
+        const float py = p.position.y * ppu;
+        const float pSize = Globals::particleSize * ppu;
+
+        int minRow = (py - pSize) / GRID_SIZE;
+        int maxRow = (py + pSize) / GRID_SIZE;
+        int minCol = (px - pSize) / GRID_SIZE;
+        int maxCol = (px + pSize) / GRID_SIZE;
+
+        if (minRow < 0) minRow = 0;
+        if (maxRow >= rows) maxRow = rows - 1;
+        if (minCol < 0) minCol = 0;
+        if (maxCol >= cols) maxCol = cols - 1;
+
+        for (int row = minRow; row <= maxRow; row++)
         {
-            const ParticleObject &p = particles[index];
-
-            const float px = p.position.x * ppu;
-            const float py = p.position.y * ppu;
-            const float pSize = Globals::particleSize * ppu;
-
-            int minRow = (py - pSize) / Globals::gridSize;
-            int maxRow = (py + pSize) / Globals::gridSize;
-            int minCol = (px - pSize) / Globals::gridSize;
-            int maxCol = (px + pSize) / Globals::gridSize;
-
-            if (minRow < 0) minRow = 0;
-            if (maxRow >= rows) maxRow = rows - 1;
-            if (minCol < 0) minCol = 0;
-            if (maxCol >= cols) maxCol = cols - 1;
-
-            for (int row = minRow; row <= maxRow; row++)
+            for (int col = minCol; col <= maxCol; col++)
             {
-                for (int col = minCol; col <= maxCol; col++)
-                {
-                    cells[row * cols + col]++;
-                }
+                _cells[row * cols + col]++;
             }
         }
-    });
-
-    // Merge all threads' buckets into _cells (single threaded)
-    for (size_t i = 0; i < _cells.size(); i++)
-    {
-        for (unsigned threadId = 0; threadId < threads; threadId++)
-            _cells[i] += partial[threadId][i];
     }
 }
 
-// Render the Grid
+// Render Grid
 void Grid::render(SDL_Renderer *r, const bool isStarted) const
 {
+    std::vector<SDL_FRect> batch;
+    int lastColor = -1;
+    const size_t size = batch.size();
+
+    // TODO: instead of mulitple cells mearge them
+    auto flush = [&]()
+    {
+        if (batch.empty())
+            return;
+
+        if (isStarted)
+            SDL_RenderFillRects(r, batch.data(), size);
+        else
+            SDL_RenderRects(r, batch.data(), size);
+
+        batch.clear();
+    };
+
+    if (!isStarted)
+    {
+        SDL_SetRenderDrawColor(r, 100, 255, 100, 255);
+        SDL_RenderRects(r, _grid.data(), static_cast<int>(_grid.size()));
+        return;
+    }
+
     for (size_t i = 0; i < _grid.size(); i++)
     {
-        if (!isStarted)
+        const float scale = std::min(1.0f, static_cast<float>(_cells[i]) / Globals::particlesCount);
+        const int color = static_cast<int>(255.0f * scale);
+
+        if (color != lastColor)
         {
-            SDL_SetRenderDrawColor(r, 100, 255, 100, 255);
-            SDL_RenderRect(r, &_grid[i]);
-            continue;
+            flush();
+            lastColor = color;
+
+            SDL_SetRenderDrawColor(r, color, color, color, 255);
         }
 
-        int c = _cells[i];
-
-        float scale = std::min(1.0f, c / Globals::particlesCount);
-        int value = static_cast<int>(255.0f * scale);
-        SDL_SetRenderDrawColor(r, value, value, value, 255);
-
-        // if (c == 0)
-        //     SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
-        // else
-        //     SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
-
-        SDL_RenderFillRect(r, &_grid[i]);
+        batch.push_back(_grid[i]);
     }
+
+    flush();
 }

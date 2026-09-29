@@ -4,14 +4,13 @@
 #include <vector>
 #include <algorithm>
 
-#include "particle.h"
+#include "particleobject.h"
 #include "globals.h"
-#include "parallel.h"
 
 class Grid
 {
 public:
-    void initialize();
+    void init();
     void update(const std::vector<ParticleObject> &particles);
     void render(SDL_Renderer *r, const bool isStarted) const;
 

@@ -30,7 +30,7 @@ void Panel::init(float sw)
 
     // Initialize the sliders: {id, initValue, min, max, listener}
     _sliders = {
-{"speed", 1.0f, 0.1f, 3.0f, false},
+        {"speed", 1.0f, 0.1f, 3.0f, false},
         {"gravity", 9.8f, 0.0f, 100.0f, false},
         {"count", 400.0f, 1.0f, 10000.0f, true},
         {"spacing", 0.02f, 0.005f, 0.05f, true},
@@ -38,7 +38,7 @@ void Panel::init(float sw)
         {"gridSize", 100.0f, 1.0f, 250.0f, true},
         {"smoothingRadius", 0.5f, 0.01f, 1.0f, true},
         {"mass", 0.4f, 0.05f, 2.0f, true},
-        {"targetDensity", 1000.0f, 500.0f, 2000.0f, true},
+        {"targetDensity", 1000.0f, 1.0f, 2000.0f, true},
         {"pressure", 0.5f, 0.0f, 10.0f, true},
     };
 
@@ -143,6 +143,11 @@ void Panel::handleEvent(const SDL_Event &event)
     if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && event.button.button == SDL_BUTTON_LEFT)
         handleButtonEvent(event);
 
+    // While the simulation is running the sliders are locked (only Reset re-enables
+    // them): clicks, knobs and drags on the slider section are all ignored.
+    // if (buttonValue("start"))
+    //     return;
+
     // Handle each slider
     for (Slider &slider : _sliders)
     {
@@ -164,7 +169,7 @@ void Panel::render(const float mouseX, const float mouseY) const
         return;
 
     // Clear the panel
-    c.VeryDarkGray(r);
+    Colors::VeryDarkGray(r);
     SDL_RenderClear(r);
 
     // Draw text lines
@@ -189,16 +194,16 @@ void Panel::render(const float mouseX, const float mouseY) const
 
             if (!button.visibility)
             {
-                c.DarkGray(r);
+                Colors::DarkGray(r);
                 textColor = {200, 200, 200, 255};
             }
             else if (button.value)
             {
-                c.Green(r);
+                Colors::Green(r);
                 textColor = {0, 0, 0, 255};
             }
             else
-                c.Gray(r);
+                Colors::Gray(r);
 
             SDL_RenderFillRect(r, &buttonRect);
 
@@ -229,16 +234,16 @@ void Panel::render(const float mouseX, const float mouseY) const
 
             if (!button.visibility)
             {
-                c.DarkGray(r);
+                Colors::DarkGray(r);
                 textColor = {200, 200, 200, 255};
             }
             else if (button.value)
             {
-                c.Green(r);
+                Colors::Green(r);
                 textColor = {0, 255, 0, 255};
             }
             else
-                c.Gray(r);
+                Colors::Gray(r);
 
             SDL_RenderFillRect(r, &checkbox);
 
@@ -267,14 +272,23 @@ void Panel::render(const float mouseX, const float mouseY) const
             SLIDER_X, s.y + SLIDER_H / 3.0f,
             sliderWidth(), SLIDER_H / 3.0f};
 
-        c.MediumGray(r);
+        Colors::MediumGray(r);
         SDL_RenderFillRect(r, &trackRect);
 
-        // Draw the slider knob
+        // Draw the slider knob. While the simulation is running the sliders are
+        // locked, so draw them dimmed to show they can't be changed.
         const SDL_FRect knob = knobRect(s);
 
-        c.MustardYellow(r);
-        SDL_RenderFillRect(r, &knob);
+        if (buttonValue("start"))
+        {
+            Colors::DarkGray(r);
+            SDL_RenderFillRect(r, &knob);
+        }
+        else
+        {
+            Colors::MustardYellow(r);
+            SDL_RenderFillRect(r, &knob);
+        }
 
         // Draw the slider label and value
         drawText(r, s.id, LABEL_X, s.y, 14);
@@ -407,10 +421,10 @@ float Panel::normalizeValue(float value, float min, float max)
     // Convert the value to a range between 0 and 1
     const float normalized = (value - min) / range;
 
-    return keepbetween0and1(normalized);
+    return clamp01(normalized);
 }
 
-float Panel::keepbetween0and1(float value)
+float Panel::clamp01(float value)
 {
     if (value < 0.0f)
         return 0.0f;
@@ -427,7 +441,7 @@ void Panel::handleSliderValue(Slider &slider, const SDL_Event &event)
     const float oldValue = slider.value;
 
     slider.value = (event.motion.x - SLIDER_X) / (sliderWidth() - SLIDER_H);
-    slider.value = keepbetween0and1(slider.value);
+    slider.value = clamp01(slider.value);
 
     // Check if the slider value changed
     if (slider.listener && slider.value != oldValue)

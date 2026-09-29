@@ -6,8 +6,6 @@
 #include <utility>
 #include <vector>
 
-#include "parallel.h"
-
 // Uniform-grid spatial hash that turns the O(n^2) neighbour search of the SPH
 // density / pressure sweeps into roughly O(n * avgNeighbours).
 // Port of Sebastian Lague's "Coding Adventure: Simulating Fluids" implementation.

@@ -7,7 +7,7 @@ public:
     inline static float pixelsPerMeter = 300.0f;
     inline static float gravity = 9.8f;            // m/s^2 (Earth)
     inline static bool isGravity = true;
-    inline static float coefficientOfRestitution = 0.05f; // water does not bounce
+    inline static float coefficientOfRestitution = 0.05f;
 
     inline static float particleSize = 0.01f;      // m (radius)
     inline static float particlesCount = 200.0f;
@@ -23,7 +23,7 @@ public:
     inline static float targetDensity = 1000.0f;   // kg/m^3 (water)
     inline static float pressureMultiplier = 0.5f;
 
-    // Speed colouring (the video's instanced shader colour ramp)
+    // Speed colouring
     inline static bool speedColoring = true;
     inline static float velocityMax = 20.0f;       // m/s, normalises speed into the ramp
 
@@ -39,4 +39,7 @@ public:
 
     inline static float sw;
     inline static float sh;
+
+    inline static float worldW = 0.0f;
+    inline static float worldH = 0.0f;
 };

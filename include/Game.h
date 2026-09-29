@@ -5,14 +5,10 @@
 #include <algorithm>
 
 #include "particle.h"
-#include "FPSTimer.h"
 #include "text.h"
-#include "physics.h"
 #include "globals.h"
 #include "colors.h"
-#include "shapes.h"
 #include "panel.h"
-#include "collision.h"
 #include "grid.h"
 #include "graph.h"
 #include "window.h"
@@ -25,18 +21,16 @@ public:
 
     void init();
 
-    Timer<10000> timer;
-
 public:
     // Core game loop functions
+    void tick();
     void handleInput();
     void update();
     void render();
 
 private:
-    // Clear and present
+    // Clear
     void _clear() const;
-    void _present() const;
 
     // Event
     SDL_Event _e;
@@ -45,8 +39,8 @@ public:
     // Quit flag
     bool running = true;
 
-    Uint64 NOW, LAST;
-    float mouseX, mouseY;
+private:
+    Uint64 _lastTime = 0, _nowTime = 0;
 
     // --- Refresh rates ---
     static constexpr double GRAPH_REFRESH_RATE = 1.0 / 30.0;
@@ -54,6 +48,7 @@ public:
 
     // --- FPS system ---
 private:
+    std::string _fpsText = "FPS: 0";
     double _fpsTimer = 0.0;        // time accumulator for measuring FPS
     int _fpsCounter = 0;           // counts frames in one second
     int _currentFPS = 0;           // calculated FPS
@@ -63,11 +58,10 @@ private:
     void _updateFPS();
     void _showFPS() const;
     void _listener();
+    void _sliders_lestener();
 
     // --- Vars ---
 private:
-    Shape s;
-    Colors _colors;
     Panel _panel;
     Particle _particles;
     Grid _grid;

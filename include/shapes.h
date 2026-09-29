@@ -4,6 +4,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <iterator>
 
 #include "Globals.h"
 
@@ -163,6 +164,111 @@ public:
         SDL_SetTextureBlendMode(circleTexture, SDL_BLENDMODE_ADD);
 
         return circleTexture;
+    }
+
+    // Cached soft glow field texture (B5). Regenerates only when the smoothing radius
+    // or particle size changes and owns its SDL_Texture, so nothing leaks and the
+    // caller only ever holds one object.
+    struct GlowCache
+    {
+        SDL_Texture *texture = nullptr;
+        float smoothing = -1.0f;
+        float particleSize = -1.0f;
+
+        GlowCache() = default;
+        GlowCache(const GlowCache &) = delete;
+        GlowCache &operator=(const GlowCache &) = delete;
+
+        ~GlowCache()
+        {
+            if (texture)
+            {
+                SDL_DestroyTexture(texture);
+                texture = nullptr;
+            }
+        }
+
+        // Get the cached texture, rebuilding it only when the smoothing radius or
+        // particle size changes
+        SDL_Texture *get(SDL_Renderer *r)
+        {
+            const float currentSmoothing = Globals::smoothingRadius;
+            const float currentParticleSize = Globals::particleSize;
+
+            if (texture && smoothing == currentSmoothing && particleSize == currentParticleSize)
+                return texture;
+
+            if (texture)
+            {
+                SDL_DestroyTexture(texture);
+                texture = nullptr;
+            }
+
+            // The visual field is drawn in pixels, the sim is in meters
+            const float outer = (Globals::particleSize + Globals::smoothingRadius) * Globals::pixelsPerMeter;
+
+            texture = Shape::circleTexture(r, outer);
+            smoothing = currentSmoothing;
+            particleSize = currentParticleSize;
+
+            // Linear filtering makes the additive glow merge smoothly (B5)
+            SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
+
+            return texture;
+        }
+    };
+
+    template <typename It, typename ColorFn>
+    static void glowField(SDL_Renderer *r, It first, It last, ColorFn colorFn, GlowCache &glow)
+    {
+        SDL_Texture *tex = glow.get(r);
+
+        // The visual field is drawn in pixels, the sim is in meters
+        const float outer = (Globals::particleSize + Globals::smoothingRadius) * Globals::pixelsPerMeter;
+
+        // Reusable scratch buffers (avoids allocating a new buffer every frame)
+        static thread_local std::vector<SDL_Vertex> glowVertices;
+        static thread_local std::vector<int> glowIndices;
+
+        glowVertices.clear();
+        glowIndices.clear();
+
+        const size_t count = static_cast<size_t>(std::distance(first, last));
+
+        glowVertices.reserve(count * 4);
+        glowIndices.reserve(count * 6);
+
+        size_t index = 0;
+        for (; first != last; ++first, ++index)
+        {
+            const SDL_FPoint &pos = first->position;
+            const SDL_FColor color = colorFn(index);
+
+            const float x0 = pos.x * Globals::pixelsPerMeter - outer;
+            const float y0 = pos.y * Globals::pixelsPerMeter - outer;
+            const float x1 = x0 + outer * 2.0f;
+            const float y1 = y0 + outer * 2.0f;
+
+            const size_t base = glowVertices.size();
+
+            glowVertices.push_back({{x0, y0}, color, {0.0f, 0.0f}});
+            glowVertices.push_back({{x1, y0}, color, {1.0f, 0.0f}});
+            glowVertices.push_back({{x1, y1}, color, {1.0f, 1.0f}});
+            glowVertices.push_back({{x0, y1}, color, {0.0f, 1.0f}});
+
+            glowIndices.push_back(static_cast<int>(base) + 0);
+            glowIndices.push_back(static_cast<int>(base) + 1);
+            glowIndices.push_back(static_cast<int>(base) + 2);
+            glowIndices.push_back(static_cast<int>(base) + 0);
+            glowIndices.push_back(static_cast<int>(base) + 2);
+            glowIndices.push_back(static_cast<int>(base) + 3);
+        }
+
+        SDL_RenderGeometry(r, tex,
+                           glowVertices.data(),
+                           static_cast<int>(glowVertices.size()),
+                           glowIndices.data(),
+                           static_cast<int>(glowIndices.size()));
     }
 
 private:

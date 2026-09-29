@@ -13,21 +13,34 @@ Game::Game()
     // Get screen dimansions
     Globals::sw = mode->w;
     Globals::sh = mode->h;
-    // Globals::sw = 800;
-    // Globals::sh = 600;
+
+    // The sim runs in meters; the screen (pixels) is converted once here
+    Globals::worldW = Globals::sw / Globals::pixelsPerMeter;
+    Globals::worldH = Globals::sh / Globals::pixelsPerMeter;
 
     // Create window and renderer
-    window = SDL_CreateWindow("Test", Globals::sw, Globals::sh, SDL_WINDOW_BORDERLESS);
+    window = SDL_CreateWindow("Fluid", Globals::sw, Globals::sh, SDL_WINDOW_BORDERLESS);
     r = SDL_CreateRenderer(window, nullptr);
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 
-    // Initialize the contorl panel
+    SDL_SetRenderVSync(r, 1);
+
+    // Initialize the contol panel
     _panel.init(mode->w);
 
     // Initialize graph
     _graph.init();
 
+    // Initialize particles and grid
     init();
+}
+
+// Update the simulation clock once per frame
+void Game::tick()
+{
+    _lastTime = _nowTime;
+    _nowTime = SDL_GetPerformanceCounter();
+    Globals::deltaTime = static_cast<double>(_nowTime - _lastTime) / SDL_GetPerformanceFrequency();
 }
 
 // Destructor
@@ -49,13 +62,20 @@ void Game::init()
     Globals::particleSize = _panel.value("size");
     Globals::gridSize = _panel.value("gridSize");
     Globals::smoothingRadius = _panel.value("smoothingRadius");
-    Globals::particl_mass = _panel.value("mass");
+    Globals::particleMass = _panel.value("mass");
+    Globals::pressureMultiplier = _panel.value("pressure");
+
+    const float gridPitch = Globals::particlesSpacing + Globals::particleSize * 2.0f;
+    Globals::targetDensity = Globals::particleMass / (gridPitch * gridPitch);
 
     // Initialize particles
     _particles.init(r);
 
     // Initialize grid
-    _grid.initialize();
+    _grid.init();
+
+    // updating graph limits
+    _graph.updateLimits();
 }
 
 // --- FPS Handling ---
@@ -78,26 +98,24 @@ void Game::_updateFPS()
     {
         _displayedFPS = _currentFPS;
         _fpsDisplayTimer = 0.0;
+
+        const std::string text = "FPS: " + std::to_string(_displayedFPS);
+        if (text != _fpsText)
+            _fpsText = text;
     }
 }
 
 // --- Display the FPS on the screen ---
 void Game::_showFPS() const
 {
-    drawText(r, "FPS: " + std::to_string(_displayedFPS), 10, 10, 25, {255, 0, 0, 255});
+    drawText(r, _fpsText, 10, 10, 25, {255, 0, 0, 255});
 }
 
 // --- clear and present ---
 void Game::_clear() const
 {
-    _colors.Black(r);
+    Colors::Black(r);
     SDL_RenderClear(r);
-}
-
-// --- Show to the screen ---
-void Game::_present() const
-{
-    SDL_RenderPresent(r);
 }
 
 // --- handleInput ---
@@ -120,8 +138,6 @@ void Game::handleInput()
                 running = false;
         }
     }
-
-    const bool *state = SDL_GetKeyboardState(NULL); // For continuos pressing
 }
 
 void Game::_listener()
@@ -136,9 +152,11 @@ void Game::_listener()
     Globals::speedColoring = _panel.buttonValue("speedColoring");
     Globals::random = _panel.buttonValue("random");
 
-    // Open or close the graph window when the graph toggle changes
     if (Globals::graph && !_graphWasEnabled)
+    {
         _graph.init(Globals::sw, Globals::sh);
+        _graph.updateLimits();
+    }
     else if (!Globals::graph && _graphWasEnabled)
         _graph.close();
 
@@ -151,51 +169,6 @@ void Game::_listener()
         return;
     }
 
-    // Update particle settings if changed
-    if (_panel.sliderListener("count"))
-    {
-        Globals::particlesCount = _panel.value("count");
-        _particles.init(r);
-    }
-
-    if (_panel.sliderListener("spacing"))
-    {
-        Globals::particlesSpacing = _panel.value("spacing");
-        _particles.init(r);
-    }
-
-    if (_panel.sliderListener("size"))
-    {
-        Globals::particleSize = _panel.value("size");
-        _particles.init(r);
-    }
-
-    // Update grid settings if changed
-    if (_panel.sliderListener("gridSize"))
-    {
-        Globals::gridSize = _panel.value("gridSize");
-        _grid.initialize();
-    }
-
-    // Update smoothing radius if changed
-    if (_panel.sliderListener("smoothingRadius"))
-    {
-        Globals::smoothingRadius = _panel.value("smoothingRadius");
-    }
-
-    // Update particle mass if changed (applies live to the equations)
-    if (_panel.sliderListener("mass"))
-    {
-        Globals::particl_mass = _panel.value("mass");
-    }
-
-    // Update the target density used by pressure calculations
-    if (_panel.sliderListener("targetDensity"))
-    {
-        Globals::targetDensity = _panel.value("targetDensity");
-    }
-
-    // Update the pressure multiplier used by pressure calculations
     if (_panel.sliderListener("pressure"))
     {
         Globals::pressureMultiplier = _panel.value("pressure");
@@ -208,6 +181,69 @@ void Game::_listener()
     }
 }
 
+void Game::_sliders_lestener()
+{
+    const bool spacingChanged = _panel.sliderListener("spacing");
+    const bool sizeChanged = _panel.sliderListener("size");
+    const bool massChanged = _panel.sliderListener("mass");
+
+    // Update particle settings if changed
+    if (_panel.sliderListener("count"))
+    {
+        Globals::particlesCount = _panel.value("count");
+        _particles.init(r);
+        _graph.updateLimits();
+    }
+
+    if (spacingChanged)
+    {
+        Globals::particlesSpacing = _panel.value("spacing");
+        _particles.init(r);
+    }
+
+    if (sizeChanged)
+    {
+        Globals::particleSize = _panel.value("size");
+        _particles.init(r);
+    }
+
+    // Update grid settings if changed
+    if (_panel.sliderListener("gridSize"))
+    {
+        Globals::gridSize = _panel.value("gridSize");
+        _grid.init();
+    }
+
+    // Update smoothing radius if changed
+    if (_panel.sliderListener("smoothingRadius"))
+    {
+        Globals::smoothingRadius = _panel.value("smoothingRadius");
+    }
+
+    // Update particle mass if changed (applies live to the equations)
+    if (massChanged)
+    {
+        Globals::particleMass = _panel.value("mass");
+        _graph.updateLimits();
+    }
+
+    // Manual override for the target density used by pressure calculations
+    if (_panel.sliderListener("targetDensity"))
+    {
+        Globals::targetDensity = _panel.value("targetDensity");
+        _graph.updateLimits();
+    }
+
+    // Re-derive the rest density from the actual grid pitch after any layout
+    // change; otherwise real density stays far below targetDensity and the
+    // max(0,...) clamp in fluid.cpp pins every pressure force to zero.
+    if (spacingChanged || sizeChanged || massChanged)
+    {
+        const float gridPitch = Globals::particlesSpacing + Globals::particleSize * 2.0f;
+        Globals::targetDensity = Globals::particleMass / (gridPitch * gridPitch);
+    }
+}
+
 // --- update ---
 void Game::update()
 {
@@ -216,6 +252,7 @@ void Game::update()
     // Don't update if not started yet
     if (!_panel.buttonValue("start"))
     {
+        _sliders_lestener();
         _accumulator = 0.0;
         _updateFPS();
         return;
@@ -258,7 +295,7 @@ void Game::update()
     _panel.setText("speed", stats.speed);
     _panel.setText("kineticEnergy", stats.kineticEnergy);
     _panel.setText("acceleration", stats.acceleration);
-    _panel.setText("density", stats.denstiy);
+    _panel.setText("density", stats.density);
 
     if (Globals::graph)
     {
@@ -266,7 +303,7 @@ void Game::update()
         _graph.value("speed", stats.speed);
         _graph.value("kineticEnergy", stats.kineticEnergy);
         _graph.value("acceleration", stats.acceleration);
-        _graph.value("density", stats.denstiy);
+        _graph.value("density", stats.density);
     }
 
     // Update FPS
@@ -290,6 +327,8 @@ void Game::render()
     _panelTimer += Globals::deltaTime;
     if (_panelTimer >= PANEL_REFRESH_RATE)
     {
+        float mouseX = 0.0f, mouseY = 0.0f;
+        SDL_GetMouseState(&mouseX, &mouseY);
         _panelTimer -= PANEL_REFRESH_RATE;
         _panel.render(mouseX, mouseY);
     }
@@ -309,5 +348,5 @@ void Game::render()
     _showFPS();
 
     // Render everything
-    _present();
+    SDL_RenderPresent(r);
 }
