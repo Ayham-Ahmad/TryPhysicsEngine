@@ -70,7 +70,7 @@ Where:
 * \(r\) = distance between the two objects
 
 ```cpp
-float acc = (Globals::gravity * b.rigidBody.mass) / (distance * distance);
+float acc = (G * m_b) / (r * r);
 ```
 
 The acceleration is then applied in the direction of object B, causing the Moon to orbit the Earth.
