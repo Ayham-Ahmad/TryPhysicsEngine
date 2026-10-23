@@ -39,6 +39,8 @@ public:
         switch (event.type)
         {
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
             return event.window.windowID;
 
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -47,6 +49,13 @@ public:
 
         case SDL_EVENT_MOUSE_MOTION:
             return event.motion.windowID;
+
+        case SDL_EVENT_KEY_DOWN:
+        case SDL_EVENT_KEY_UP:
+            return event.key.windowID;
+
+        case SDL_EVENT_TEXT_INPUT:
+            return event.text.windowID;
 
         default:
             return 0;

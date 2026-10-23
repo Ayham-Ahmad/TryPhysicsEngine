@@ -1,4 +1,5 @@
 #include "spatialhash.h"
+#include "Globals.h"
 
 #include <algorithm>
 
@@ -12,8 +13,6 @@ std::pair<int, int> SpatialHash::positionToCellCoord(const SDL_FPoint &point, co
 
 uint32_t SpatialHash::hashCell(const int cellX, const int cellY)
 {
-    // Hash collisions (different cells -> same value) are unavoidable; the two big
-    // primes spread nearby cells apart so collisions are rare in practice.
     const uint32_t a = static_cast<uint32_t>(cellX) * 15823u;
     const uint32_t b = static_cast<uint32_t>(cellY) * 9737333u;
 
@@ -22,6 +21,11 @@ uint32_t SpatialHash::hashCell(const int cellX, const int cellY)
 
 uint32_t SpatialHash::getKeyFromHash(const uint32_t hash) const
 {
+    // The lookup table is empty before the first update(); modulo by zero would
+    // crash, so fall back to the raw hash until the table is built
+    if (_lookup.empty())
+        return hash;
+
     // Wrap the hash around the lookup length so it can be used as an index
     return hash % static_cast<uint32_t>(_lookup.size());
 }

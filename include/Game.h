@@ -35,6 +35,9 @@ private:
     // Event
     SDL_Event _e;
 
+    // Mouose positions
+    SDL_FPoint mousePos;
+
 public:
     // Quit flag
     bool running = true;

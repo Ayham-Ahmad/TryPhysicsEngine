@@ -18,12 +18,22 @@ struct Slider
     float min = 0.0f;
     float max = 1.0f;
     bool listener = false;
+
+    // When true, this slider is locked while the simulation runs (Reset unlocks it).
+    // Use it for values that would rebuild the particles mid-run.
+    bool blockDuringSim = false;
+
     bool dragging = false;
     bool changed = false;
 
     // Normalized knob position: 0.0 to 1.0.
     float value = 0.5f;
     float y = 0.0f;
+
+    // Inline value box
+    std::string textBuffer;
+    bool editing = false;
+    bool selectAll = false;
 };
 
 struct Button
@@ -62,6 +72,7 @@ public:
     bool buttonValue(const std::string &id) const;
     bool btnListener(const std::string &id);
     bool sliderListener(const std::string &id);
+    bool isEditing() const;
 
     void setText(const std::string &id, float value);
 
@@ -94,10 +105,25 @@ private:
     static constexpr float SLIDER_H = 20.0f;
     static constexpr float SLIDER_ROW_SPACING = 40.0f;
 
+    // Inline value box drawn to the right of each slider track
+    static constexpr float VALUE_BOX_W = 80.0f;
+    static constexpr float VALUE_BOX_GAP = 6.0f;
+    static constexpr float VALUE_BOX_PADDING = 5.0f;
+    static constexpr int VALUE_FONT_SIZE = 12;
+
     // Panel helper functions
     static SDL_FRect knobRect(const Slider &slider);
     float panelHeight() const;
     static float sliderWidth();
+    static float trackWidth();
+    bool sliderLocked(const Slider &slider) const;
+    static SDL_FRect valueBoxRect(const Slider &slider);
+    static bool parseNumber(const std::string &text, float &result);
+    void beginEditing(int index);
+    void endEditing(bool commit);
+    void commitEditing();
+    bool handleTextBoxClick(const SDL_Event &event);
+    bool handleTextBoxInput(const SDL_Event &event);
     static float actionButtonWidth();
     int actionButtonCount() const;
     static bool isActionButton(const std::string &id);
@@ -114,4 +140,6 @@ private:
     std::vector<PanelText> _texts;
     std::vector<Slider> _sliders;
     std::vector<Button> _buttons;
+
+    int _editingIndex = -1;
 };

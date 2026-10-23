@@ -17,4 +17,5 @@ public:
 private:
     std::vector<SDL_FRect> _grid;
     std::vector<int> _cells;
+    float _cellSize = 0.0f;
 };

@@ -63,6 +63,9 @@ void Particle::init(SDL_Renderer *r)
             p.position.y = randomFloat(
                 Globals::particleSize,
                 Globals::worldH - Globals::particleSize);
+
+            // Set a random velocity
+            p.velocity = Scale({-0.5f + randomFloat(0, 1), -0.5f + randomFloat(0, 1)}, 2);
         }
         else
         {
@@ -81,124 +84,172 @@ void Particle::init(SDL_Renderer *r)
         _particles.push_back(p);
     }
 
+    _fluidHashGrid.initialize(_particles);
+
     // Force the metrics cache to recompute (count or layout changed)
     _statsTimer = STATS_RATE;
 }
 
-void Particle::update(const double simulationDeltaTime)
+void Particle::neighbourSearch()
 {
-    const size_t count = _particles.size();
-    const float deltaTime = static_cast<float>(simulationDeltaTime);
+    _fluidHashGrid.cellSize = Globals::interatctionRadius;
 
-    constexpr float predictionDeltaTime = 1.0f / 120.0f;
+    _fluidHashGrid.clearGrid();
+    _fluidHashGrid.mapParticleToCell();
+}
 
-    _densities.resize(count);
-    _positions.resize(count);
-
+void Particle::doubleDensityRelaxation(const double simulationDeltaTime, const size_t &count)
+{
     for (size_t i = 0; i < count; i++)
     {
-        ParticleObject &p = _particles[i];
+        float density = 0;
+        float densityNear = 0;
+        const auto neighbours = _fluidHashGrid.getNeighbourOfParticleIdx(i);
+        ParticleObject &particleA = _particles[i];
 
-        if (Globals::isGravity)
+        for (size_t j = 0; j < neighbours.size(); j++)
         {
-            p.velocity.y += Globals::gravity * deltaTime;
-            p.acceleration.y = Globals::gravity;
+            const size_t neighbourIndex = neighbours[j];
+            if (i == neighbourIndex)
+                continue;
+
+            const ParticleObject &particleB = _particles[neighbourIndex];
+
+            SDL_FPoint rij = Sub(particleB.position, particleA.position);
+            float q = Length(rij) / Globals::interatctionRadius;
+
+            if (q < 1.0f)
+            {
+                density += pow(1 - q, 2);
+                densityNear += pow(1 - q, 3);
+            }
         }
 
-        _positions[i].x = p.position.x + p.velocity.x * predictionDeltaTime;
-        _positions[i].y = p.position.y + p.velocity.y * predictionDeltaTime;
+        float pressure = Globals::k * (density - Globals::targetDensity);
+        float pressureNear = Globals::kNear * densityNear;
+        SDL_FPoint particleADisplacement = Zero();
+
+        for (size_t j = 0; j < neighbours.size(); j++)
+        {
+            const size_t neighbourIndex = neighbours[j];
+            if (i == neighbourIndex)
+                continue;
+
+            ParticleObject &particleB = _particles[neighbourIndex];
+
+            SDL_FPoint rij = Sub(particleB.position, particleA.position);
+            const float length = Length(rij);
+            const float q = length / Globals::interatctionRadius;
+
+            if (q < 1.0f && length > 1e-9f)
+            {
+                rij = Noralize(rij);
+                float displacementTrem = pow(simulationDeltaTime, 2) *
+                                         (pressure * (1 - q) + pressureNear * pow(1 - q, 2));
+                SDL_FPoint D = Scale(rij, displacementTrem);
+
+                particleB.position = Add(particleB.position, Scale(D, 0.5));
+                particleADisplacement = Sub(particleADisplacement, Scale(D, 0.5));
+            }
+        }
+        particleA.position = Add(particleA.position, particleADisplacement);
+    }
+}
+
+void Particle::update(const double simulationDeltaTime, SDL_FPoint mousePos)
+{
+    const size_t count = _particles.size();
+
+    _positions.clear();
+
+    if (Globals::isGravity)
+    {
+        for (size_t i = 0; i < count; i++)
+        {
+            _particles[i].velocity = Add(_particles[i].velocity, Scale({0, Globals::gravity}, simulationDeltaTime));
+        }
     }
 
-    // Step 2: Rebuild the spatial lookup with the predicted positions
-    _spatialHash.update(_positions, Globals::smoothingRadius);
-
-    // Step 3: Calculate densities at the predicted positions
-    for (size_t i = 0; i < count; i++)
-        _densities[i] = _fluid.calculateDensity(_positions[i], _spatialHash);
-
-    // Step 4: Calculate and apply pressure forces
+    // predict positions
     for (size_t i = 0; i < count; i++)
     {
-        const float density = _densities[i];
-        if (density <= 0.0f)
-            continue;
-
-        const SDL_FPoint pressureForce = _fluid.calculatePressureForce(_positions[i], density, _positions, _densities, _spatialHash);
-
-        const SDL_FPoint pressureAcceleration = {
-            pressureForce.x / density,
-            pressureForce.y / density};
-
-        ParticleObject &p = _particles[i];
-
-        p.velocity.x += pressureAcceleration.x * deltaTime;
-        p.velocity.y += pressureAcceleration.y * deltaTime;
-
-        p.acceleration.x += pressureAcceleration.x;
-        p.acceleration.y += pressureAcceleration.y;
+        ParticleObject &particle = _particles[i];
+        particle.prevPosition = particle.position;
+        SDL_FPoint positionDelta = Scale(particle.velocity, simulationDeltaTime * Globals::coefficientOfRestitution);
+        particle.position = Add(particle.position, positionDelta);
+        _positions.push_back(particle.position);
     }
 
-    // Step 5: Update positions and resolve collisions
+    neighbourSearch();
+    doubleDensityRelaxation(simulationDeltaTime, count);
+
+    // collision with the screen
     for (size_t i = 0; i < count; i++)
     {
-        ParticleObject &p = _particles[i];
-
-        p.position.x += p.velocity.x * deltaTime;
-        p.position.y += p.velocity.y * deltaTime;
-
-        Physics2D::checkCollisionBetweenObjAndScreen(p);
+        ParticleObject &particle = _particles[i];
+        Physics2D::checkCollisionBetweenObjAndScreen(particle);
     }
+
+    // compute next velocity
+    for (size_t i = 0; i < count; i++)
+    {
+        ParticleObject &particle = _particles[i];
+        SDL_FPoint velocity = Scale(Sub(particle.position, particle.prevPosition), 1.0f / simulationDeltaTime);
+        particle.velocity = velocity;
+    }
+
+    // _spatialHash.update(_positions, Globals::smoothingRadius);
 }
 
 void Particle::render(SDL_Renderer *r) const
 {
     const size_t count = _particles.size();
-    const bool hasDensities = _densities.size() == count;
+    // const bool hasDensities = _densities.size() == count;
 
-    // Normalize the pressure colors: max |density - targetDensity| over all particles
-    // (skipped entirely while the speed colour ramp is active)
-    float maxAbs = 0.0f;
-    if (hasDensities && !Globals::speedColoring)
-    {
-        for (size_t i = 0; i < count; i++)
-            maxAbs = std::max(maxAbs, std::abs(_densities[i] - Globals::targetDensity));
-    }
+    // // Normalize the pressure colors: max |density - targetDensity| over all particles
+    // // (skipped entirely while the speed colour ramp is active)
+    // float maxAbs = 0.0f;
+    // if (hasDensities && !Globals::speedColoring)
+    // {
+    //     for (size_t i = 0; i < count; i++)
+    //         maxAbs = std::max(maxAbs, std::abs(_densities[i] - Globals::targetDensity));
+    // }
 
-    const float invMaxAbs = maxAbs < 1e-12f ? 0.0f : 1.0f / maxAbs;
+    // const float invMaxAbs = maxAbs < 1e-12f ? 0.0f : 1.0f / maxAbs;
 
-    const auto particleColor = [&](const size_t i) -> SDL_FColor
-    {
-        if (Globals::speedColoring)
-        {
-            const ParticleObject &p = _particles[i];
-            const float speed = std::sqrt(p.velocity.x * p.velocity.x + p.velocity.y * p.velocity.y);
-            const float speedT = std::min(1.0f, speed / Globals::velocityMax);
-            return speedRampColor(speedT);
-        }
+    // const auto particleColor = [&](const size_t i) -> SDL_FColor
+    // {
+    //     if (Globals::speedColoring)
+    //     {
+    //         const ParticleObject &p = _particles[i];
+    //         const float speed = std::sqrt(p.velocity.x * p.velocity.x + p.velocity.y * p.velocity.y);
+    //         const float speedT = std::min(1.0f, speed / Globals::velocityMax);
+    //         return speedRampColor(speedT);
+    //     }
 
-        const float pressure = hasDensities ? _densities[i] - Globals::targetDensity : 0.0f;
-        const float t = std::max(-1.0f, std::min(1.0f, pressure * invMaxAbs));
+    //     const float pressure = hasDensities ? _densities[i] - Globals::targetDensity : 0.0f;
+    //     const float t = std::max(-1.0f, std::min(1.0f, pressure * invMaxAbs));
 
-        SDL_FColor color;
-        if (t <= 0.0f)
-        {
-            color.r = 1.0f + t;
-            color.g = 1.0f + t;
-            color.b = 1.0f;
-        }
-        else
-        {
-            color.r = 1.0f;
-            color.g = 1.0f - t;
-            color.b = 1.0f - t;
-        }
+    //     SDL_FColor color;
+    //     if (t <= 0.0f)
+    //     {
+    //         color.r = 1.0f + t;
+    //         color.g = 1.0f + t;
+    //         color.b = 1.0f;
+    //     }
+    //     else
+    //     {
+    //         color.r = 1.0f;
+    //         color.g = 1.0f - t;
+    //         color.b = 1.0f - t;
+    //     }
 
-        color.a = 1.0f;
-        return color;
-    };
+    //     color.a = 1.0f;
+    //     return color;
+    // };
 
-    if (Globals::circles)
-        Shape::glowField(r, _particles.begin(), _particles.end(), particleColor, _glow);
+    // if (Globals::circles)
+    //     Shape::glowField(r, _particles.begin(), _particles.end(), Colors::CyanF(), _glow);
 
     // Render each particle
     if (Globals::particles)
@@ -212,10 +263,20 @@ void Particle::render(SDL_Renderer *r) const
                 p.position.x * Globals::pixelsPerMeter,
                 p.position.y * Globals::pixelsPerMeter};
 
-            Shape::shape(r, posPx, radius, Globals::PARTICLE_RESOLUTION, particleColor(i));
-            // Shape::shape(r, posPx, radius, Globals::PARTICLE_RESOLUTION, Colors::CyanF());
+            Shape::shape(r, posPx, radius, Globals::PARTICLE_RESOLUTION, p.color);
         }
     }
+
+    // std::pair gridIndexPair =  _spatialHash.positionToCellCoord(_particles[0].position, Globals::smoothingRadius);
+
+    // SDL_FPoint gridIndex = {static_cast<float>(gridIndexPair.first), static_cast<float>(gridIndexPair.second)};
+
+    // uint32_t hash2d = _spatialHash.hashCell(gridIndexPair.first, gridIndexPair.second);
+    // uint32_t key = _spatialHash.getKeyFromHash(hash2d);
+
+    // drawText(r, "(" + std::to_string(gridIndexPair.first) + ", " + std::to_string(gridIndexPair.second) + ")", _particles[0].position.x * Globals::pixelsPerMeter, _particles[0].position.y * Globals::pixelsPerMeter + 20, 20);
+    // drawText(r, static_cast<int>(hash2d), _particles[0].position.x * Globals::pixelsPerMeter, _particles[0].position.y * Globals::pixelsPerMeter + 45, 20);
+    // drawText(r, static_cast<int>(key), _particles[0].position.x * Globals::pixelsPerMeter, _particles[0].position.y * Globals::pixelsPerMeter + 70, 20);
 
     // Render the property gradient field as arrows on a screen-wide grid
     // if (Globals::gradientArrows)
@@ -226,6 +287,11 @@ void Particle::render(SDL_Renderer *r) const
 }
 
 const std::vector<ParticleObject> &Particle::getParticlesList() const
+{
+    return _particles;
+}
+
+std::vector<ParticleObject> &Particle::getParticlesList()
 {
     return _particles;
 }

@@ -2,12 +2,13 @@
 
 #include <SDL3/SDL.h>
 
-// A single simulation particle. The sim runs in meters; rendering converts to
-// pixels where needed.
+#include "vector2.h"
 struct ParticleObject
 {
-    SDL_FPoint position = {0, 0};
-    SDL_FPoint velocity = {0, 0};
+    SDL_FPoint position = Zero();
+    SDL_FPoint prevPosition = Zero();
+    SDL_FPoint velocity = Zero();
+    SDL_FColor color = {0.0f, 1.0f, 1.0f, 1.0f};
     SDL_FPoint acceleration = {0, 0};
 };
 

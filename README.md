@@ -1,6 +1,6 @@
-# Simple Physics Engine
+# Simple Pyshics Enginee
 
-A small 2D fluid-physics sandbox built with C++ and SDL3.
+A small C++ physics sandbox built with C++ and SDL3.
 
 ## Setup and Run
 
@@ -15,11 +15,11 @@ git clone https://github.com/Ayham-Ahmad/TryPhysicsEngine.git
 cd TryPhysicsEngine
 ```
 
-4. Update the SDL include paths in `Makefile` if they are different on your computer.
-5. Build the project with `make` (or run `build.bat` which wraps it):
+4. Update the SDL paths in `build.bat` if they are different on your computer.
+5. Build the project:
 
 ```bash
-make
+build.bat
 ```
 
 6. Run the application:
@@ -28,51 +28,90 @@ make
 main.exe
 ```
 
-## Control Panel
+## First Step
 
-A second window lets you tune the simulation live:
+The first thing we did is to create a circle using triangles, so we use SDL_RenderGeometry() for it.
 
-- **Buttons** (toggle checkboxes): draw the occupancy grid, open the metrics graph,
-  enable gravity, screen-boundary handling, particles, the soft glow circles,
-  gradient arrows, and speed-based colouring.
-- **Start / Pause / Reset** control the simulation. While running, the sliders are
-  locked so the fluid stays consistent; press Reset to apply new values.
-- **Sliders**: particle count, spacing, size, grid size, smoothing radius, particle
-  mass, target density, pressure multiplier, and simulation speed.
+![First shape-generation test](images/step1.png)
 
-## Smooth-Particle Hydrodynamics
+## Second Step: Gravity
 
-The fluid is simulated with SPH, ported line-for-line from Sebastian Lague's
-*"Coding Adventure: Simulating Fluids"* video:
+The second step adds gravity so particles accelerate and fall over time.
 
-- **Density** — each particle's density is accumulated from its neighbours using a
-  kernel that falls to zero at the smoothing radius:
+![Gravity simulation](images/gravity.gif)
+
+## Third Step: Collision
+
+The third step adds collisions between particles and the screen boundaries. The current step can run up to only a *1,000* particles at 60 FPS.
+
+This step collision method checks every particle against every other particle to find collisions. It also checks every particle against the screen boundaries on each update.
+
+![Collision simulation](images/collision.gif)
+
+And this is the third step collision equations:
+
+![Collision equations](images/collisionExplaination.png)
+
+## Fourth Step: Gravitational Force
+
+In this step, gravitational force was added to simulate the orbit of the Moon around the Earth.
+
+The gravitational acceleration acting on object **A** due to object **B** is calculated using Newton's law of universal gravitation:
+
+$$
+a = \frac{Gm_b}{r^2}
+$$
+
+Where:
+
+* \(a\) = gravitational acceleration acting on object A
+* \(G\) = gravitational constant used in the simulation
+* \(m_b\) = mass of object B
+* \(r\) = distance between the two objects
 
 ```cpp
-density += mass * (radius - dist)² * 6 / (π · radius⁴)
+float acc = (Globals::gravity * b.rigidBody.mass) / (distance * distance);
 ```
 
-- **Pressure force** — density error against the rest density is converted to a
-  pressure, then shared between neighbours. The pressure-gradient force pushes
-  compressed particles apart:
+The acceleration is then applied in the direction of object B, causing the Moon to orbit the Earth.
+
+![Earth and moon simulation](images/earthAndMoongif.gif)
+
+## Fifth Step: Spatial Hash
+
+Checking every particle against every other particle does not scale, so before the fluid is computed the particles are sorted into a grid. The cell size is the interaction radius, so a particle only has to look at its own cell and the 8 cells around it to find every neighbour that can affect it.
+
+Each cell is stored in a hash map, so the grid does not have to be allocated for the whole world, and the set of neighbouring particles is found in a few steps instead of a full scan.
 
 ```cpp
-densityError = density - targetDensity;
-pressure = clamp(densityError * pressureMultiplier, 0, ∞);
+uint32_t hash = (cellX * prime1 ^ cellY * prime2) % hashMapSize;
 ```
 
-- A neighbour-search **spatial hash** keeps the density/pressure sweeps O(n · k)
-  instead of O(n²), so the sim stays near real-time up to ~1000+ particles.
+![Spatial hash](images/hash.gif)
 
-## Rendering
+## Sixth Step: Double Density Relaxation
 
-- Particles (instanced polygons via `SDL_RenderGeometry`) with either speed-based
-  or pressure-based colouring.
-- Soft additive glow around each particle, batched into a single textured geometry
-  draw (one draw call for the whole field).
-- Optional gradient-arrow field that samples the pressure gradient once per frame.
-- Metrics graph (entropy, average speed, kinetic energy, acceleration, density) with
-  a ring-buffer history.
+The last step makes the particles behave like a fluid. It uses the double density relaxation method from Clavet et al. 2005, where every particle looks at the neighbours found by the hash and measures two densities, with `q` being the distance to the neighbour divided by the interaction radius `h`:
+
+* `density = Σ(1 - q)²`
+* `densityNear = Σ(1 - q)³`
+
+The two densities are turned into pressures:
+
+```cpp
+float pressure = Globals::k * (density - Globals::targetDensity);
+float pressureNear = Globals::kNear * densityNear;
+```
+
+and then every pair of particles is pushed apart by:
+
+```cpp
+float displacementTerm = dt * dt * (pressure * (1 - q) + pressureNear * (1 - q) * (1 - q));
+```
+
+`targetDensity` is the density the fluid relaxes towards: above it the fluid contracts, below it the fluid expands. `k` controls how stiff the fluid is and `kNear` keeps the closest particles from collapsing into each other.
+
+![Fluid simulation](images/fluid.gif)
 
 ## Libraries
 

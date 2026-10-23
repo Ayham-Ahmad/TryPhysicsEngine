@@ -1,9 +1,20 @@
 #include "grid.h"
 
+namespace
+{
+    // The grid cells follow the fluid interaction radius: one cell is exactly
+    // one interaction radius wide (the same cells the fluid hash grid uses).
+    float gridCellSize()
+    {
+        return std::max(1.0f, Globals::interatctionRadius * Globals::pixelsPerMeter);
+    }
+}
+
 // Initialize grid
 void Grid::init()
 {
-    float GRID_SIZE = Globals::gridSize;
+    float GRID_SIZE = gridCellSize();
+    _cellSize = GRID_SIZE;
 
     int rows = (Globals::sh + GRID_SIZE - 1) / GRID_SIZE;
     int cols = (Globals::sw + GRID_SIZE - 1) / GRID_SIZE;
@@ -32,11 +43,17 @@ void Grid::init()
 // Update gird
 void Grid::update(const std::vector<ParticleObject> &particles)
 {
+    // The cell size follows the interaction radius, so rebuild the cells when it changes
+    if (gridCellSize() != _cellSize)
+    {
+        init();
+    }
+
     std::fill(_cells.begin(), _cells.end(), 0);
 
     const float ppu = Globals::pixelsPerMeter;
 
-    const float GRID_SIZE = Globals::gridSize;
+    const float GRID_SIZE = gridCellSize();
 
     int rows = (Globals::sh + GRID_SIZE - 1) / GRID_SIZE;
     int cols = (Globals::sw + GRID_SIZE - 1) / GRID_SIZE;

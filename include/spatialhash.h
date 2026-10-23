@@ -22,6 +22,9 @@ public:
     template <typename Fn>
     void forEachPointWithinRadius(const SDL_FPoint &samplePoint, Fn &&callback) const
     {
+        if (_lookup.empty() || _points == nullptr)
+            return;
+
         const auto [centreX, centreY] = positionToCellCoord(samplePoint, _radius);
         const float sqrRadius = _radius * _radius;
 
@@ -32,6 +35,9 @@ public:
             for (int offsetX = -1; offsetX <= 1; offsetX++)
             {
                 const uint32_t key = getKeyFromHash(hashCell(centreX + offsetX, centreY + offsetY));
+
+                if (key >= _startIndices.size())
+                    continue;
 
                 for (size_t i = _startIndices[key]; i < _lookup.size(); i++)
                 {

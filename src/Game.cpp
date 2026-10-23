@@ -60,13 +60,17 @@ void Game::init()
     Globals::particlesCount = _panel.value("count");
     Globals::particlesSpacing = _panel.value("spacing");
     Globals::particleSize = _panel.value("size");
-    Globals::gridSize = _panel.value("gridSize");
     Globals::smoothingRadius = _panel.value("smoothingRadius");
     Globals::particleMass = _panel.value("mass");
-    Globals::pressureMultiplier = _panel.value("pressure");
 
-    const float gridPitch = Globals::particlesSpacing + Globals::particleSize * 2.0f;
-    Globals::targetDensity = Globals::particleMass / (gridPitch * gridPitch);
+    // Fluid solver parameters (double density relaxation)
+    Globals::interatctionRadius = _panel.value("interatctionRadius");
+    Globals::targetDensity = _panel.value("rest_density");
+    Globals::kNear = _panel.value("kNear");
+    Globals::k = _panel.value("k");
+
+    // Globals::gridSize = _panel.value("gridSize");        // grid follows interatctionRadius now
+    // Globals::pressureMultiplier = _panel.value("pressure");
 
     // Initialize particles
     _particles.init(r);
@@ -123,6 +127,8 @@ void Game::handleInput()
 {
     while (SDL_PollEvent(&_e))
     {
+        const bool wasEditing = _panel.isEditing();
+
         _panel.handleEvent(_e);
         _graph.handleEvent(_e);
 
@@ -133,9 +139,14 @@ void Game::handleInput()
         {
             SDL_Scancode sc = _e.key.scancode;
 
-            // Close window
-            if (sc == SDL_SCANCODE_ESCAPE)
+            // Escape cancels a value edit instead of closing the window
+            if (sc == SDL_SCANCODE_ESCAPE && !wasEditing)
                 running = false;
+        }
+        else if (_e.type == SDL_EVENT_MOUSE_MOTION)
+        {
+            mousePos.x = _e.motion.x / Globals::pixelsPerMeter;
+            mousePos.y = _e.motion.y / Globals::pixelsPerMeter;
         }
     }
 }
@@ -169,9 +180,31 @@ void Game::_listener()
         return;
     }
 
-    if (_panel.sliderListener("pressure"))
+    // if (_panel.sliderListener("pressure"))
+    // {
+    //     Globals::pressureMultiplier = _panel.value("pressure");
+    // }
+
+    // Fluid solver parameters (double density relaxation) - applied live so they
+    // can be tweaked while the simulation is running
+    if (_panel.sliderListener("interatctionRadius"))
     {
-        Globals::pressureMultiplier = _panel.value("pressure");
+        Globals::interatctionRadius = _panel.value("interatctionRadius");
+    }
+
+    if (_panel.sliderListener("rest_density"))
+    {
+        Globals::targetDensity = _panel.value("rest_density");
+    }
+
+    if (_panel.sliderListener("kNear"))
+    {
+        Globals::kNear = _panel.value("kNear");
+    }
+
+    if (_panel.sliderListener("k"))
+    {
+        Globals::k = _panel.value("k");
     }
 
     // Randomize the particles positions
@@ -208,11 +241,11 @@ void Game::_sliders_lestener()
     }
 
     // Update grid settings if changed
-    if (_panel.sliderListener("gridSize"))
-    {
-        Globals::gridSize = _panel.value("gridSize");
-        _grid.init();
-    }
+    // if (_panel.sliderListener("gridSize"))
+    // {
+    //     Globals::gridSize = _panel.value("gridSize");
+    //     _grid.init();
+    // }
 
     // Update smoothing radius if changed
     if (_panel.sliderListener("smoothingRadius"))
@@ -228,20 +261,11 @@ void Game::_sliders_lestener()
     }
 
     // Manual override for the target density used by pressure calculations
-    if (_panel.sliderListener("targetDensity"))
-    {
-        Globals::targetDensity = _panel.value("targetDensity");
-        _graph.updateLimits();
-    }
-
-    // Re-derive the rest density from the actual grid pitch after any layout
-    // change; otherwise real density stays far below targetDensity and the
-    // max(0,...) clamp in fluid.cpp pins every pressure force to zero.
-    if (spacingChanged || sizeChanged || massChanged)
-    {
-        const float gridPitch = Globals::particlesSpacing + Globals::particleSize * 2.0f;
-        Globals::targetDensity = Globals::particleMass / (gridPitch * gridPitch);
-    }
+    // if (_panel.sliderListener("targetDensity"))
+    // {
+    //     Globals::targetDensity = _panel.value("targetDensity");
+    //     _graph.updateLimits();
+    // }
 }
 
 // --- update ---
@@ -270,17 +294,15 @@ void Game::update()
 
     _accumulator += Globals::deltaTime * _panel.value("speed");
 
-    // Guard against the spiral of death, but keep enough headroom that the speed
-    // slider still scales (cap of 10 steps/frame throttled high speeds at low FPS).
-    if (_accumulator > STEP_TIME * 120.0)
-        _accumulator = STEP_TIME * 120.0;
+    if (_accumulator > STEP_TIME * 1)
+        _accumulator = STEP_TIME * 1;
 
     Globals::gravity = _panel.value("gravity");
 
     // Update particles
     while (_accumulator >= STEP_TIME)
     {
-        _particles.update(STEP_TIME);
+        _particles.update(STEP_TIME, mousePos);
         _accumulator -= STEP_TIME;
     }
 
@@ -288,23 +310,23 @@ void Game::update()
     if (Globals::grid)
         _grid.update(_particles.getParticlesList());
 
-    // Update metrics for the graph and panel
-    const PhysicsStats stats = _particles.getPhysicsStats();
+    // // Update metrics for the graph and panel
+    // const PhysicsStats stats = _particles.getPhysicsStats();
 
-    _panel.setText("entropy", stats.entropy);
-    _panel.setText("speed", stats.speed);
-    _panel.setText("kineticEnergy", stats.kineticEnergy);
-    _panel.setText("acceleration", stats.acceleration);
-    _panel.setText("density", stats.density);
+    // _panel.setText("entropy", stats.entropy);
+    // _panel.setText("speed", stats.speed);
+    // _panel.setText("kineticEnergy", stats.kineticEnergy);
+    // _panel.setText("acceleration", stats.acceleration);
+    // _panel.setText("density", stats.density);
 
-    if (Globals::graph)
-    {
-        _graph.value("entropy", stats.entropy);
-        _graph.value("speed", stats.speed);
-        _graph.value("kineticEnergy", stats.kineticEnergy);
-        _graph.value("acceleration", stats.acceleration);
-        _graph.value("density", stats.density);
-    }
+    // if (Globals::graph)
+    // {
+    //     _graph.value("entropy", stats.entropy);
+    //     _graph.value("speed", stats.speed);
+    //     _graph.value("kineticEnergy", stats.kineticEnergy);
+    //     _graph.value("acceleration", stats.acceleration);
+    //     _graph.value("density", stats.density);
+    // }
 
     // Update FPS
     _updateFPS();
