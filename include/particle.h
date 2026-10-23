@@ -32,6 +32,9 @@ private:
     mutable PhysicsStats _cachedStats;
     mutable float _statsTimer = 0.0f;
 
+    // Hash demo: last cursor position in world space (drawn in render)
+    SDL_FPoint _hoverPos = {0.0f, 0.0f};
+
 public:
     void init(SDL_Renderer *r);
     void update(const double simulationDeltaTime, SDL_FPoint mousePos);
@@ -39,6 +42,6 @@ public:
     const std::vector<ParticleObject> &getParticlesList() const;
     std::vector<ParticleObject> &getParticlesList();
     PhysicsStats getPhysicsStats() const;
-    void neighbourSearch();
+    void neighbourSearch(SDL_FPoint mousePos);
     void doubleDensityRelaxation(const double simulationDeltaTime, const size_t &count);
 };

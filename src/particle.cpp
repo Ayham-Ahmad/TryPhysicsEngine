@@ -90,12 +90,41 @@ void Particle::init(SDL_Renderer *r)
     _statsTimer = STATS_RATE;
 }
 
-void Particle::neighbourSearch()
+void Particle::neighbourSearch(SDL_FPoint mousePos)
 {
     _fluidHashGrid.cellSize = Globals::interatctionRadius;
 
     _fluidHashGrid.clearGrid();
     _fluidHashGrid.mapParticleToCell();
+
+    _hoverPos = mousePos;
+
+    const SDL_FPoint cellIndex = _fluidHashGrid.getGridIndexFromPos(mousePos);
+    const int cellX = static_cast<int>(cellIndex.x);
+    const int cellY = static_cast<int>(cellIndex.y);
+
+    for (size_t i = 0; i < _particles.size(); i++)
+    {
+        _particles[i].color = {0.0f, 1.0f, 1.0f, 1.0f};
+    }
+
+    // Highlight the 3x3 cells the solver searches: dim orange ring, solid centre
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            const bool centre = (x == 0 && y == 0);
+            const auto &content = _fluidHashGrid.getContentOffCell(
+                _fluidHashGrid.cellIndexToHash(cellX + x, cellY + y));
+
+            for (size_t i : content)
+            {
+                _particles[i].color = centre
+                                          ? SDL_FColor{1.0f, 0.5f, 0.0f, 1.0f}
+                                          : SDL_FColor{0.9f, 0.45f, 0.15f, 1.0f};
+            }
+        }
+    }
 }
 
 void Particle::doubleDensityRelaxation(const double simulationDeltaTime, const size_t &count)
@@ -180,8 +209,8 @@ void Particle::update(const double simulationDeltaTime, SDL_FPoint mousePos)
         _positions.push_back(particle.position);
     }
 
-    neighbourSearch();
-    doubleDensityRelaxation(simulationDeltaTime, count);
+    neighbourSearch(mousePos);
+    // doubleDensityRelaxation(simulationDeltaTime, count);
 
     // collision with the screen
     for (size_t i = 0; i < count; i++)
@@ -265,6 +294,39 @@ void Particle::render(SDL_Renderer *r) const
 
             Shape::shape(r, posPx, radius, Globals::PARTICLE_RESOLUTION, p.color);
         }
+
+        // Hash demo overlay: hovered cell, the searched 3x3 block and the radius h
+        const float ppu = Globals::pixelsPerMeter;
+        const float cellPx = Globals::interatctionRadius * ppu;
+
+        const float cellX = std::floor(_hoverPos.x / Globals::interatctionRadius);
+        const float cellY = std::floor(_hoverPos.y / Globals::interatctionRadius);
+
+        const SDL_FRect hoveredCell = {
+            cellX * cellPx,
+            cellY * cellPx,
+            cellPx,
+            cellPx};
+
+        const SDL_FRect searchedCells = {
+            hoveredCell.x - cellPx,
+            hoveredCell.y - cellPx,
+            cellPx * 3.0f,
+            cellPx * 3.0f};
+
+        SDL_SetRenderDrawColor(r, 0, 255, 0, 40);
+        SDL_RenderFillRect(r, &hoveredCell);
+
+        SDL_SetRenderDrawColor(r, 255, 0, 0, 200);
+        SDL_RenderRect(r, &searchedCells);
+        SDL_SetRenderDrawColor(r, 0, 0, 255, 200);
+        SDL_RenderRect(r, &hoveredCell);
+
+        Shape::emptyCircle(
+            r,
+            static_cast<int16_t>(_hoverPos.x * ppu),
+            static_cast<int16_t>(_hoverPos.y * ppu),
+            static_cast<int16_t>(Globals::interatctionRadius * ppu));
     }
 
     // std::pair gridIndexPair =  _spatialHash.positionToCellCoord(_particles[0].position, Globals::smoothingRadius);
