@@ -6,8 +6,8 @@ A small C++ physics sandbox built with C++ and SDL3.
 
 1. Install MinGW with `g++` and make sure it is available in your PATH.
 2. Download and install the SDL3 development library and the SDL3_ttf development library:
-	- [SDL3](https://github.com/libsdl-org/SDL/releases)
-	- [SDL3_ttf](https://github.com/libsdl-org/SDL_ttf/releases)
+   - [SDL3](https://github.com/libsdl-org/SDL/releases)
+   - [SDL3_ttf](https://github.com/libsdl-org/SDL_ttf/releases)
 3. Clone the repository:
 
 ```bash
@@ -58,16 +58,14 @@ In this step, gravitational force was added to simulate the orbit of the Moon ar
 
 The gravitational acceleration acting on object **A** due to object **B** is calculated using Newton's law of universal gravitation:
 
-$$
-a = \frac{Gm_b}{r^2}
-$$
+$$ a = \\frac{Gm_b}{r^2} $$
 
 Where:
 
-* \(a\) = gravitational acceleration acting on object A
-* \(G\) = gravitational constant used in the simulation
-* \(m_b\) = mass of object B
-* \(r\) = distance between the two objects
+- (a) = gravitational acceleration acting on object A
+- (G) = gravitational constant used in the simulation
+- (m_b) = mass of object B
+- (r) = distance between the two objects
 
 ```cpp
 float acc = (G * m_b) / (r * r);
@@ -76,6 +74,12 @@ float acc = (G * m_b) / (r * r);
 The acceleration is then applied in the direction of object B, causing the Moon to orbit the Earth.
 
 ![Earth and moon simulation](images/earthAndMoongif.gif)
+
+## Grid Visualization
+
+To understand how spatial partitioning works, we visualized which cells particles occupy. As particles enter cells, they light them up.
+
+![Grid visualization](images/grid.gif)
 
 ## Fifth Step: Spatial Hash
 
@@ -87,14 +91,12 @@ Each cell is stored in a hash map, so the grid does not have to be allocated for
 uint32_t hash = (cellX * prime1 ^ cellY * prime2) % hashMapSize;
 ```
 
-![Spatial hash](images/hash.gif)
-
-## Sixth Step: Double Density Relaxation
+![Spatial hash](images/hash.gif)\## Sixth Step: Double Density Relaxation
 
 The last step makes the particles behave like a fluid. It uses the double density relaxation method from Clavet et al. 2005, where every particle looks at the neighbours found by the hash and measures two densities, with `q` being the distance to the neighbour divided by the interaction radius `h`:
 
-* `density = Σ(1 - q)²`
-* `densityNear = Σ(1 - q)³`
+- `density = Σ(1 - q)²`
+- `densityNear = Σ(1 - q)³`
 
 The two densities are turned into pressures:
 
