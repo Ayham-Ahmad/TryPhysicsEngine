@@ -23,13 +23,13 @@ Game::Game()
     r = SDL_CreateRenderer(window, nullptr);
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 
-    SDL_SetRenderVSync(r, 1);
+    SDL_SetRenderVSync(r, 0);
 
     // Initialize the contol panel
-    _panel.init(mode->w);
+    _panel.init(mode->w, window);
 
     // Initialize graph
-    _graph.init();
+    // _graph.init();
 
     // Initialize particles and grid
     init();
@@ -48,7 +48,7 @@ Game::~Game()
 {
     close();
 
-    _graph.close();
+    // _graph.close();
     _panel.close();
 
     TTF_Quit();
@@ -60,16 +60,19 @@ void Game::init()
     Globals::particlesCount = _panel.value("count");
     Globals::particlesSpacing = _panel.value("spacing");
     Globals::particleSize = _panel.value("size");
-    Globals::smoothingRadius = _panel.value("smoothingRadius");
-    Globals::particleMass = _panel.value("mass");
+    // Globals::smoothingRadius = _panel.value("smoothingRadius");
+    // Globals::particleMass = _panel.value("mass");
 
     // Fluid solver parameters (double density relaxation)
     Globals::interatctionRadius = _panel.value("interatctionRadius");
-    Globals::targetDensity = _panel.value("rest_density");
+    Globals::targetDensity = _panel.value("target_density");
     Globals::kNear = _panel.value("kNear");
     Globals::k = _panel.value("k");
 
-    // Globals::gridSize = _panel.value("gridSize");        // grid follows interatctionRadius now
+    // viscosity
+    Globals::Sigma = _panel.value("sigma");
+    Globals::Beta = _panel.value("beta");
+
     // Globals::pressureMultiplier = _panel.value("pressure");
 
     // Initialize particles
@@ -79,7 +82,7 @@ void Game::init()
     _grid.init();
 
     // updating graph limits
-    _graph.updateLimits();
+    // _graph.updateLimits();
 }
 
 // --- FPS Handling ---
@@ -130,7 +133,7 @@ void Game::handleInput()
         const bool wasEditing = _panel.isEditing();
 
         _panel.handleEvent(_e);
-        _graph.handleEvent(_e);
+        // _graph.handleEvent(_e);
 
         // Close window
         if (_e.type == SDL_EVENT_QUIT)
@@ -163,15 +166,15 @@ void Game::_listener()
     Globals::speedColoring = _panel.buttonValue("speedColoring");
     Globals::random = _panel.buttonValue("random");
 
-    if (Globals::graph && !_graphWasEnabled)
-    {
-        _graph.init(Globals::sw, Globals::sh);
-        _graph.updateLimits();
-    }
-    else if (!Globals::graph && _graphWasEnabled)
-        _graph.close();
+    // if (Globals::graph && !_graphWasEnabled)
+    // {
+    //     _graph.init(Globals::sw, Globals::sh);
+    //     _graph.updateLimits();
+    // }
+    // else if (!Globals::graph && _graphWasEnabled)
+    //     _graph.close();
 
-    _graphWasEnabled = Globals::graph;
+    // _graphWasEnabled = Globals::graph;
 
     if (_panel.btnListener("reset"))
     {
@@ -192,9 +195,9 @@ void Game::_listener()
         Globals::interatctionRadius = _panel.value("interatctionRadius");
     }
 
-    if (_panel.sliderListener("rest_density"))
+    if (_panel.sliderListener("target_density"))
     {
-        Globals::targetDensity = _panel.value("rest_density");
+        Globals::targetDensity = _panel.value("target_density");
     }
 
     if (_panel.sliderListener("kNear"))
@@ -205,6 +208,16 @@ void Game::_listener()
     if (_panel.sliderListener("k"))
     {
         Globals::k = _panel.value("k");
+    }
+
+    if (_panel.sliderListener("sigma"))
+    {
+        Globals::Sigma = _panel.value("sigma");
+    }
+
+    if (_panel.sliderListener("beta"))
+    {
+        Globals::Beta = _panel.value("beta");
     }
 
     // Randomize the particles positions
@@ -225,7 +238,7 @@ void Game::_sliders_lestener()
     {
         Globals::particlesCount = _panel.value("count");
         _particles.init(r);
-        _graph.updateLimits();
+        // _graph.updateLimits();
     }
 
     if (spacingChanged)
@@ -257,7 +270,7 @@ void Game::_sliders_lestener()
     if (massChanged)
     {
         Globals::particleMass = _panel.value("mass");
-        _graph.updateLimits();
+        // _graph.updateLimits();
     }
 
     // Manual override for the target density used by pressure calculations
@@ -273,13 +286,11 @@ void Game::update()
 {
     _listener();
 
-    // Don't update if not started yet
-    if (!_panel.buttonValue("start"))
+    const bool started = _panel.buttonValue("start");
+    if (!started)
     {
         _sliders_lestener();
         _accumulator = 0.0;
-        _updateFPS();
-        return;
     }
 
     // Don't update if paused
@@ -292,15 +303,13 @@ void Game::update()
     // Run the physics at a fixed rate regardless of the render speed
     constexpr double STEP_TIME = 1.0 / 120.0;
 
-    _accumulator += Globals::deltaTime * _panel.value("speed");
-
-    if (_accumulator > STEP_TIME * 1)
-        _accumulator = STEP_TIME * 1;
+    if (started)
+        _accumulator += Globals::deltaTime * _panel.value("speed");
 
     Globals::gravity = _panel.value("gravity");
 
     // Update particles
-    while (_accumulator >= STEP_TIME)
+    while (started && _accumulator >= STEP_TIME)
     {
         _particles.update(STEP_TIME, mousePos);
         _accumulator -= STEP_TIME;
@@ -309,24 +318,6 @@ void Game::update()
     // Update grid
     if (Globals::grid)
         _grid.update(_particles.getParticlesList());
-
-    // // Update metrics for the graph and panel
-    // const PhysicsStats stats = _particles.getPhysicsStats();
-
-    // _panel.setText("entropy", stats.entropy);
-    // _panel.setText("speed", stats.speed);
-    // _panel.setText("kineticEnergy", stats.kineticEnergy);
-    // _panel.setText("acceleration", stats.acceleration);
-    // _panel.setText("density", stats.density);
-
-    // if (Globals::graph)
-    // {
-    //     _graph.value("entropy", stats.entropy);
-    //     _graph.value("speed", stats.speed);
-    //     _graph.value("kineticEnergy", stats.kineticEnergy);
-    //     _graph.value("acceleration", stats.acceleration);
-    //     _graph.value("density", stats.density);
-    // }
 
     // Update FPS
     _updateFPS();
@@ -356,15 +347,15 @@ void Game::render()
     }
 
     // Render graph (capped)
-    if (Globals::graph && _graph.isOpen())
-    {
-        _graphTimer += Globals::deltaTime;
-        if (_graphTimer >= GRAPH_REFRESH_RATE)
-        {
-            _graphTimer -= GRAPH_REFRESH_RATE;
-            _graph.render();
-        }
-    }
+    // if (Globals::graph && _graph.isOpen())
+    // {
+    //     _graphTimer += Globals::deltaTime;
+    //     if (_graphTimer >= GRAPH_REFRESH_RATE)
+    //     {
+    //         _graphTimer -= GRAPH_REFRESH_RATE;
+    //         _graph.render();
+    //     }
+    // }
 
     // Render FPS counter
     _showFPS();

@@ -1,5 +1,9 @@
 ﻿#pragma once
 #include <SDL3/SDL.h>
+#include <cmath>
+#include <algorithm>
+
+#include "particleobject.h"
 
 class Colors
 {
@@ -122,5 +126,26 @@ public:
     static constexpr SDL_FColor GrayF()
     {
         return {128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 1.0f};
+    }
+
+    //---------------------------------------//
+
+    static float lerp(float a, float b, float t)
+    {
+        return a + t * (b - a);
+    }
+
+    static SDL_FColor particleColor(const ParticleObject &particle, float maxExpectedSpeed)
+    {
+        float currentSpeed = std::hypot(particle.velocity.x, particle.velocity.y);
+
+        float t = currentSpeed / maxExpectedSpeed;
+        t = std::clamp(t, 0.0f, 1.0f);
+
+        return {
+            lerp(0.0f, 1.0f, t),
+            0.0f,
+            lerp(1.0f, 0.0f, t),
+            1.0f};
     }
 };

@@ -8,8 +8,6 @@ int main()
     // Main loop
     while (game.running)
     {
-        
-
         game.tick();
         game.handleInput();
         game.update();

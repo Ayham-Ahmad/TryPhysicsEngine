@@ -64,6 +64,9 @@ public:
     // explodes.
     inline static float k = 65.0f;
 
+    inline static float Sigma = 0.0f;
+    inline static float Beta = 0.0f;
+
     inline static bool graph = false;
 
     inline static bool screenCollision = true;

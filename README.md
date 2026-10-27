@@ -91,7 +91,9 @@ Each cell is stored in a hash map, so the grid does not have to be allocated for
 uint32_t hash = (cellX * prime1 ^ cellY * prime2) % hashMapSize;
 ```
 
-![Spatial hash](images/hash.gif)\## Sixth Step: Double Density Relaxation
+![Spatial hash](images/hash.gif)
+
+## Sixth Step: Double Density Relaxation
 
 The last step makes the particles behave like a fluid. It uses the double density relaxation method from Clavet et al. 2005, where every particle looks at the neighbours found by the hash and measures two densities, with `q` being the distance to the neighbour divided by the interaction radius `h`:
 

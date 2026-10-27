@@ -1,17 +1,17 @@
 #pragma once
 #include <unordered_map>
 #include <vector>
-
+#include <SDL3/SDL.h>
 #include "particleobject.h"
 
 class FluidHashGrid
 {
 public:
     double cellSize;
-    std::unordered_map<long long, std::vector<size_t>> hashMap;
+    std::unordered_map<long long, std::vector<size_t> > hashMap;
     size_t hashMapSize = 100000000;
-    long long prime1 = 6614058611;
-    long long prime2 = 7528850467;
+    long long prime1 = 6614058611LL;
+    long long prime2 = 7528850467LL;
 
     const std::vector<ParticleObject> *particles = nullptr;
 
@@ -29,14 +29,14 @@ public:
 
     uint32_t cellIndexToHash(const int cellX, const int cellY)
     {
-        const uint32_t hash = (cellX * prime1 ^ cellY * prime2) % hashMapSize;
+        const uint32_t hash = (uint32_t)(((long long)cellX * prime1 ^ (long long)cellY * prime2) % (long long)hashMapSize);
         return hash;
     }
 
     SDL_FPoint getGridIndexFromPos(const SDL_FPoint &pos)
     {
-        const float cellX = static_cast<int>(pos.x / cellSize);
-        const float cellY = static_cast<int>(pos.y / cellSize);
+        const float cellX = (float)(int)(pos.x / cellSize);
+        const float cellY = (float)(int)(pos.y / cellSize);
 
         return {cellX, cellY};
     }
@@ -45,12 +45,13 @@ public:
     {
         SDL_FPoint cellIndex = getGridIndexFromPos(pos);
 
-        return cellIndexToHash(cellIndex.x, cellIndex.y);
+        return cellIndexToHash((int)cellIndex.x, (int)cellIndex.y);
     }
 
     std::vector<size_t> getNeighbourOfParticleIdx(size_t i)
     {
         std::vector<size_t> neighbours;
+        if (!particles) return neighbours;
         SDL_FPoint pos = particles->at(i).position;
 
         SDL_FPoint cellIndex = getGridIndexFromPos(pos);
@@ -59,8 +60,8 @@ public:
         {
             for (int y = -1; y <= 1; y++)
             {
-                int gridX = cellIndex.x + x;
-                int gridY = cellIndex.y + y;
+                int gridX = (int)cellIndex.x + x;
+                int gridY = (int)cellIndex.y + y;
 
                 long long hashId = cellIndexToHash(gridX, gridY);
                 const auto &content = getContentOffCell(hashId);
@@ -74,13 +75,11 @@ public:
 
     void mapParticleToCell()
     {
-        for (int i = 0; i < particles->size(); i++)
+        if (!particles) return;
+        for (size_t i = 0; i < particles->size(); i++)
         {
             long long hash = getGridHashFromPos(particles->at(i).position);
 
-            // 1. If 'hash' doesn't exist, create a new empty std::vector<Particle>
-            // 2. If it already exists, fetche the existing vector
-            // 3. Then immediately pushe the particle into that vector
             hashMap[hash].push_back(i);
         }
     }
