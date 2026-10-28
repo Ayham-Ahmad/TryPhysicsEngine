@@ -46,6 +46,8 @@ void Game::tick()
 // Destructor
 Game::~Game()
 {
+    Perf::Get().EndFrame();
+    Perf::Get().ReportAndClear();
     close();
 
     // _graph.close();
@@ -131,6 +133,7 @@ void Game::_clear() const
 // --- handleInput ---
 void Game::handleInput()
 {
+    PERF_SCOPE("Game::handleInput");
     while (SDL_PollEvent(&_e))
     {
         const bool wasEditing = _panel.isEditing();
@@ -292,6 +295,8 @@ void Game::_sliders_lestener()
 // --- update ---
 void Game::update()
 {
+    static bool first = true;
+    if (first) { Perf::Get().BeginFrame(); first = false; }
     _listener();
 
     const bool started = _panel.buttonValue("start");
@@ -321,15 +326,24 @@ void Game::update()
     {
         if (Globals::emitters)
         {
+            PERF_SCOPE("Emitter::update");
             _emitters.update(STEP_TIME, _particles.getParticlesList(), 0.01f);
         }
-        _particles.update(STEP_TIME, mousePos);
+        {
+            PERF_SCOPE("Particle::update");
+            _particles.update(STEP_TIME, mousePos);
+        }
         _accumulator -= STEP_TIME;
     }
 
+    _panel.setText("count", (float)_particles.getParticlesList().size());
+
     // Update grid
     if (Globals::grid)
+    {
+        PERF_SCOPE("Grid::update");
         _grid.update(_particles.getParticlesList());
+    }
 
     // Update FPS
     _updateFPS();
@@ -338,6 +352,7 @@ void Game::update()
 // --- render ---
 void Game::render()
 {
+    PERF_SCOPE("Game::render");
     // Clear background
     _clear();
 
@@ -377,5 +392,8 @@ void Game::render()
     _showFPS();
 
     // Render everything
-    SDL_RenderPresent(r);
+    {
+        PERF_SCOPE("SDL_RenderPresent");
+        SDL_RenderPresent(r);
+    }
 }

@@ -13,6 +13,7 @@
 #include "graph.h"
 #include "window.h"
 #include "particleEmitter.h"
+#include "Perf.h"
 
 class Game : public Window
 {
