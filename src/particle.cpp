@@ -101,7 +101,7 @@ void Particle::doubleDensityRelaxation(const double &simulationDeltaTime, const 
 
             if (q < 1.0f && length > 1e-9f)
             {
-                rij = Noralize(rij);
+                rij = Normalize(rij);
                 float displacementTrem = pow(simulationDeltaTime, 2) *
                                          (pressure * (1 - q) + pressureNear * pow(1 - q, 2));
                 SDL_FPoint D = Scale(rij, displacementTrem);
@@ -134,7 +134,7 @@ void Particle::viscosity(const double &simulationDeltaTime, const size_t &count)
 
             if (q < 1.0f)
             {
-                rij = Noralize(rij);
+                rij = Normalize(rij);
                 float u = Dot(Sub(particleA.velocity, particleB.velocity), rij);
 
                 if (u > 0)

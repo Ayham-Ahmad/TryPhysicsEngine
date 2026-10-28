@@ -13,7 +13,7 @@ inline float Length2(const SDL_FPoint &p)
     return p.x * p.x + p.y * p.y;
 }
 
-inline SDL_FPoint Noralize(const SDL_FPoint &p)
+inline SDL_FPoint Normalize(const SDL_FPoint &p)
 {
     float length = Length(p);
     return {
@@ -60,4 +60,11 @@ inline SDL_FPoint Scale(const SDL_FPoint &firstP, const float &scalar)
     return {
         firstP.x * scalar,
         firstP.y * scalar};
+}
+
+inline SDL_FPoint Rotate(const SDL_FPoint &p, float angle)
+{
+    float c = std::cos(angle);
+    float s = std::sin(angle);
+    return {p.x * c - p.y * s, p.x * s + p.y * c};
 }

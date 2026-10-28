@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstdio>
+#include <string>
 
 static std::string fmtf(float v)
 {
@@ -21,11 +22,7 @@ void Panel::init(float sw, SDL_Window* parent) { _sw = sw; _parent = parent; ini
 void Panel::init()
 {
     _texts = {
-        {"entropy", "Entropy: "},
-        {"speed", "Speed: "},
-        {"kineticEnergy", "Kinetic Energy: "},
-        {"acceleration", "Acceleration: "},
-        {"density", "Density: "},
+        {"count", "Count: "},
     };
 
     for (size_t ti = 0; ti < _texts.size(); ti++) _texts[ti].y = TEXT_TOP + (float)ti * TEXT_SPACING;
@@ -42,13 +39,14 @@ void Panel::init()
         {"circles", "Render Circles", false, true},
         // {"gradientArrows", "Gradient Arrows", false, true},
         {"speedColoring", "Speed Colors", true, true},
+        {"emitters", "Emitters", true, true},
         {"random", "random", false, true, true},
     };
 
     _sliders = {
         {"speed", 0.5f, 0.1f, 5.0f, false, false},
         {"gravity", 9.8f, 0.0f, 20.0f, true, false},
-        {"count", 3000.0f, 1.0f, 40000.0f, true, true},
+        {"count", 500.0f, 1.0f, 40000.0f, true, true},
         {"spacing", 0.001f, 0.001f, 0.1f, true, true},
         {"size", 0.031f, 0.002f, 0.05f, true, true},
         // {"smoothingRadius", 0.5f, 0.01f, 2.0f, true, false},
@@ -57,8 +55,8 @@ void Panel::init()
         {"target_density", 0.624, 0.1f, 20.0f, true, false},
         {"kNear", 30.0f, 0.1f, 100.0f, true, false},
         {"k", 49.0f, 0.1f, 200.0f, true, false},
-        {"sigma", 0.01f, 0.0f, 1.0f, true, false},
-        {"beta", 0.01f, 0.0f, 1.0f, true, false},
+        {"sigma", 0.01f, 0.0f, 5.0f, true, false},
+        {"beta", 0.01f, 0.0f, 5.0f, true, false},
     };
 
     for (auto &s : _sliders)
@@ -453,7 +451,11 @@ void Panel::render(const float mouseX, const float mouseY)
     SDL_RenderClear(r);
 
     for (const auto &t : _texts)
-        drawText(r, t.label, TEXT_X, t.y, 14);
+    {
+        std::string s = t.label;
+        if (t.id == "count") s += std::to_string((int)t.value);
+        drawText(r, s, TEXT_X, t.y, 14);
+    }
 
     for (size_t i = 0; i < _buttons.size(); i++)
     {

@@ -12,6 +12,7 @@
 #include "grid.h"
 #include "graph.h"
 #include "window.h"
+#include "particleEmitter.h"
 
 class Game : public Window
 {
@@ -69,6 +70,7 @@ private:
     Particle _particles;
     Grid _grid;
     Graph _graph;
+    ParticleEmitter _emitters;
 
     // --- Timers ---
     double _panelTimer = 0.0;

@@ -83,6 +83,9 @@ void Game::init()
 
     // updating graph limits
     // _graph.updateLimits();
+
+    // Initialize emitters
+    _emitters.init();
 }
 
 // --- FPS Handling ---
@@ -164,6 +167,7 @@ void Game::_listener()
     Globals::circles = _panel.buttonValue("circles");
     Globals::gradientArrows = _panel.buttonValue("gradientArrows");
     Globals::speedColoring = _panel.buttonValue("speedColoring");
+    Globals::emitters = _panel.buttonValue("emitters");
     Globals::random = _panel.buttonValue("random");
 
     // if (Globals::graph && !_graphWasEnabled)
@@ -187,6 +191,8 @@ void Game::_listener()
     // {
     //     Globals::pressureMultiplier = _panel.value("pressure");
     // }
+
+    // Emitter controls handled via globals in ParticleEmitter
 
     // Fluid solver parameters (double density relaxation) - applied live so they
     // can be tweaked while the simulation is running
@@ -225,6 +231,8 @@ void Game::_listener()
     {
         _particles.init(r);
     }
+
+    _panel.setText("count", _particles.getParticlesList().size());
 }
 
 void Game::_sliders_lestener()
@@ -311,6 +319,10 @@ void Game::update()
     // Update particles
     while (started && _accumulator >= STEP_TIME)
     {
+        if (Globals::emitters)
+        {
+            _emitters.update(STEP_TIME, _particles.getParticlesList(), 0.01f);
+        }
         _particles.update(STEP_TIME, mousePos);
         _accumulator -= STEP_TIME;
     }
@@ -328,6 +340,10 @@ void Game::render()
 {
     // Clear background
     _clear();
+
+    // Render emitters
+    if (Globals::emitters)
+        _emitters.render(r);
 
     // Render Grid
     if (Globals::grid)

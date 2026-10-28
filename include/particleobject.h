@@ -12,6 +12,17 @@ struct ParticleObject
     SDL_FPoint acceleration = {0, 0};
 };
 
+struct ParticleEmitterObject
+{
+    SDL_FPoint position = Zero();
+    SDL_FPoint direction = Zero();
+    float size = 0.0f;
+    float spawnInterval = 0.0f;
+    float amount = 0.0f;
+    float velocity = 0.0f;
+    double timer = 0.0;
+};
+
 // Aggregate metrics reported to the panel and graph
 struct PhysicsStats
 {

@@ -69,6 +69,8 @@ public:
 
     inline static bool graph = false;
 
+    inline static bool emitters = true;
+
     inline static bool screenCollision = true;
 
     inline static double deltaTime = 0.0;
