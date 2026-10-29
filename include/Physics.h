@@ -25,7 +25,7 @@ public:
     static SDL_FPoint getCollisionImpulseVector(const SDL_FPoint &collisionNormal, float impulseMagnitude) noexcept;
 
     // Check collision with the screen
-    static void checkCollisionBetweenObjAndScreen(ParticleObject &p);
+    static void checkCollisionBetweenObjAndScreen(ParticleObject &p, const SDL_Rect &box);
 
     // Check collision between particles
     static void checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::vector<ParticleObject> &particles);

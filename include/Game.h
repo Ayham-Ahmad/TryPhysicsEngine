@@ -14,6 +14,8 @@
 #include "window.h"
 #include "particleEmitter.h"
 #include "Perf.h"
+#include "simBox.h"
+#include "parallel.h"
 
 class Game : public Window
 {
@@ -68,10 +70,11 @@ private:
     // --- Vars ---
 private:
     Panel _panel;
-    Particle _particles;
     Grid _grid;
     Graph _graph;
     ParticleEmitter _emitters;
+
+    Box _sims[4] = {};
 
     // --- Timers ---
     double _panelTimer = 0.0;

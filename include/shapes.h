@@ -7,6 +7,7 @@
 #include <iterator>
 
 #include "Globals.h"
+#include "parallel.h"
 
 struct ShapeData
 {
@@ -48,6 +49,83 @@ public:
             resolution,
             data.indices.data(),
             static_cast<int>(data.indices.size()));
+    }
+
+    template <typename RandomIt, typename ColorFn>
+    static void shapesBatch(
+        SDL_Renderer *r, RandomIt first, RandomIt last,
+        const float radius, const int resolution, ColorFn colorFn)
+    {
+        if (first == last || resolution < 3)
+            return;
+
+        const ShapeData &data = getShapeData(resolution);
+        const SDL_FPoint *pts = data.points.data();
+
+        const size_t count = static_cast<size_t>(std::distance(first, last));
+        const size_t vertsPerShape = static_cast<size_t>(resolution);
+        const size_t indicesPerShape = static_cast<size_t>(resolution - 2) * 3;
+        const size_t requiredVertices = count * vertsPerShape;
+        const size_t requiredIndices = count * indicesPerShape;
+
+        static std::vector<SDL_Vertex> batchVertices;
+        static std::vector<int> batchIndices;
+        static size_t cachedShapes = 0;
+        static int cachedRes = 0;
+
+        batchVertices.resize(requiredVertices);
+
+        if (cachedRes != resolution)
+        {
+            cachedRes = resolution;
+            cachedShapes = 0;
+        }
+
+        if (count > cachedShapes)
+        {
+            batchIndices.resize(requiredIndices);
+            int *idxBase = batchIndices.data();
+
+            parallel_for(cachedShapes, count, [&](int s)
+                         {
+                int *idx = idxBase + static_cast<size_t>(s) * indicesPerShape;
+                const int baseVertex = s * resolution;
+                for (int t = 1; t < resolution - 1; ++t)
+                {
+                    idx[0] = baseVertex;
+                    idx[1] = baseVertex + t;
+                    idx[2] = baseVertex + t + 1;
+                    idx += 3;
+                } });
+
+            cachedShapes = count;
+        }
+
+        const float ppm = Globals::pixelsPerMeter;
+        SDL_Vertex *vBase = batchVertices.data();
+
+        parallel_for(0, count, [&](int i)
+                     {
+            const auto &item = *(first + i);
+            const float px = item.position.x * ppm;
+            const float py = item.position.y * ppm;
+            const SDL_FColor col = colorFn(static_cast<size_t>(i));
+
+            SDL_Vertex *v = vBase + static_cast<size_t>(i) * vertsPerShape;
+            for (int k = 0; k < resolution; ++k)
+            {
+                v[k] = {
+                    {px + pts[k].x * radius, py + pts[k].y * radius},
+                    col,
+                    {0.0f, 0.0f}};
+            } });
+
+        SDL_RenderGeometry(
+            r, nullptr,
+            batchVertices.data(),
+            static_cast<int>(requiredVertices),
+            batchIndices.data(),
+            static_cast<int>(requiredIndices));
     }
 
     static void emptyCircle(SDL_Renderer *r, int16_t cx, int16_t cy, int16_t radius)
@@ -212,8 +290,8 @@ public:
         }
     };
 
-    template <typename It, typename ColorFn>
-    static void glowField(SDL_Renderer *r, It first, It last, ColorFn colorFn, GlowCache &glow)
+    template <typename RandomIt, typename ColorFn>
+    static void glowField(SDL_Renderer *r, RandomIt first, RandomIt last, ColorFn colorFn, GlowCache &glow)
     {
         if (first == last)
             return;
@@ -223,8 +301,8 @@ public:
         const float ppm = Globals::pixelsPerMeter;
         const float outer = (Globals::particleSize + Globals::smoothingRadius) * ppm;
 
-        static thread_local std::vector<SDL_Vertex> glowVertices;
-        static thread_local std::vector<int> glowIndices;
+        static std::vector<SDL_Vertex> glowVertices;
+        static std::vector<int> glowIndices;
 
         const size_t count = static_cast<size_t>(std::distance(first, last));
         const size_t requiredVertices = count * 4;
@@ -236,27 +314,26 @@ public:
         if (count > currentQuads)
         {
             glowIndices.resize(requiredIndices);
-            int *idx = glowIndices.data() + currentQuads * 6;
-            for (size_t q = currentQuads; q < count; ++q)
-            {
-                const int base = static_cast<int>(q * 4);
+            int *idxBase = glowIndices.data();
+
+            parallel_for(currentQuads, count, [&](int q)
+                         {
+                int *idx = idxBase + static_cast<size_t>(q) * 6;
+                const int base = q * 4;
                 idx[0] = base + 0;
                 idx[1] = base + 1;
                 idx[2] = base + 2;
                 idx[3] = base + 0;
                 idx[4] = base + 2;
-                idx[5] = base + 3;
-                idx += 6;
-            }
+                idx[5] = base + 3; });
         }
 
-        SDL_Vertex *v = glowVertices.data();
-        size_t index = 0;
+        SDL_Vertex *vBase = glowVertices.data();
 
-        for (; first != last; ++first, ++index)
-        {
-            const SDL_FPoint &pos = first->position;
-            const SDL_FColor color = colorFn(index);
+        parallel_for(0, count, [&](int i)
+                     {
+            const SDL_FPoint &pos = (first + i)->position;
+            const SDL_FColor color = colorFn(static_cast<size_t>(i));
 
             const float cx = pos.x * ppm;
             const float cy = pos.y * ppm;
@@ -265,12 +342,11 @@ public:
             const float x1 = cx + outer;
             const float y1 = cy + outer;
 
+            SDL_Vertex *v = vBase + static_cast<size_t>(i) * 4;
             v[0] = {{x0, y0}, color, {0.0f, 0.0f}};
             v[1] = {{x1, y0}, color, {1.0f, 0.0f}};
             v[2] = {{x1, y1}, color, {1.0f, 1.0f}};
-            v[3] = {{x0, y1}, color, {0.0f, 1.0f}};
-            v += 4;
-        }
+            v[3] = {{x0, y1}, color, {0.0f, 1.0f}}; });
 
         SDL_RenderGeometry(
             r, tex,

@@ -23,6 +23,7 @@ void Panel::init()
 {
     _texts = {
         {"count", "Count: "},
+        {"totalCount", "Total count: "},
     };
 
     for (size_t ti = 0; ti < _texts.size(); ti++) _texts[ti].y = TEXT_TOP + (float)ti * TEXT_SPACING;
@@ -39,7 +40,7 @@ void Panel::init()
         {"circles", "Render Circles", false, true},
         // {"gradientArrows", "Gradient Arrows", false, true},
         {"speedColoring", "Speed Colors", true, true},
-        {"emitters", "Emitters", true, true},
+        {"emitters", "Emitters", false, true},
         {"random", "random", false, true, true},
     };
 
@@ -51,7 +52,6 @@ void Panel::init()
         {"size", 0.031f, 0.002f, 0.05f, true, true},
         // {"smoothingRadius", 0.5f, 0.01f, 2.0f, true, false},
         // {"mass", 0.4f, 0.01f, 10.0f, true, false},
-        {"interatctionRadius", 0.079f, 0.01f, 0.3f, true, false},
         {"target_density", 0.624, 0.1f, 20.0f, true, false},
         {"kNear", 30.0f, 0.1f, 100.0f, true, false},
         {"k", 49.0f, 0.1f, 200.0f, true, false},
@@ -453,7 +453,7 @@ void Panel::render(const float mouseX, const float mouseY)
     for (const auto &t : _texts)
     {
         std::string s = t.label;
-        if (t.id == "count") s += std::to_string((int)t.value);
+        s += fmtf(t.value);
         drawText(r, s, TEXT_X, t.y, 14);
     }
 

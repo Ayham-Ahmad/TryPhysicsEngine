@@ -1,14 +1,20 @@
 #include "particle.h"
 #include "Perf.h"
 
-void Particle::init(SDL_Renderer *r)
+void Particle::init(SDL_Renderer *r, const SDL_Rect &box)
 {
     // rows and cols for grid of particles
     int particlesPerRow = (int)sqrt(Globals::particlesCount);
     int particlesPerCol = (Globals::particlesCount - 1) / particlesPerRow + 1;
     const float particlesSpacing = Globals::particlesSpacing + Globals::particleSize * 2;
+    const float pixelsPerMeter = Globals::pixelsPerMeter;
+    const float left = box.x / pixelsPerMeter;
+    const float top = box.y / pixelsPerMeter;
+    const float boxWidth = box.w / pixelsPerMeter;
+    const float boxHeight = box.h / pixelsPerMeter;
 
     _particles.clear();
+    simBox = box;
 
     // Create each particle
     for (int i = 0; i < Globals::particlesCount; i++)
@@ -19,23 +25,23 @@ void Particle::init(SDL_Renderer *r)
         {
             // Set a random position
             p.position.x = randomFloat(
-                Globals::particleSize,
-                Globals::worldW - Globals::particleSize);
+                left + Globals::particleSize,
+                left + boxWidth - Globals::particleSize);
 
             p.position.y = randomFloat(
-                Globals::particleSize,
-                Globals::worldH - Globals::particleSize);
+                top + Globals::particleSize,
+                top + boxHeight - Globals::particleSize);
 
             // Set a random velocity
-            p.velocity = Scale({-0.5f + randomFloat(0, 1), -0.5f + randomFloat(0, 1)}, 2);
+            // p.velocity = Scale({-0.5f + randomFloat(0, 1), -0.5f + randomFloat(0, 1)}, 2);
         }
         else
         {
             // Calculate the row and column
-            float x = Globals::worldW / 2.0f +
+            float x = left + boxWidth / 2.0f +
                       (i % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * particlesSpacing;
 
-            float y = Globals::worldH / 2.0f +
+            float y = top + boxHeight / 2.0f +
                       (i / particlesPerRow - particlesPerCol / 2.0f + 0.5f) * particlesSpacing;
 
             // Set the particle position
@@ -196,15 +202,13 @@ void Particle::update(const double &simulationDeltaTime, SDL_FPoint mousePos)
 {
     const size_t count = _particles.size();
 
-    _positions.clear();
+    // _positions.clear();
 
     if (Globals::isGravity)
     {
         PERF_SCOPE("SPH::applyGravity");
-        for (size_t i = 0; i < count; i++)
-        {
-            _particles[i].velocity = Add(_particles[i].velocity, Scale({0, Globals::gravity}, (float)simulationDeltaTime));
-        }
+        parallel_for(0, count, [&](int i)
+                     { _particles[i].velocity = Add(_particles[i].velocity, Scale({0, Globals::gravity}, (float)simulationDeltaTime)); });
     }
 
     {
@@ -215,14 +219,14 @@ void Particle::update(const double &simulationDeltaTime, SDL_FPoint mousePos)
     // predict positions
     {
         PERF_SCOPE("SPH::predict");
-        for (size_t i = 0; i < count; i++)
-        {
-            ParticleObject &particle = _particles[i];
-            particle.prevPosition = particle.position;
-            SDL_FPoint positionDelta = Scale(particle.velocity, (float)simulationDeltaTime * Globals::coefficientOfRestitution);
-            particle.position = Add(particle.position, positionDelta);
-            _positions.push_back(particle.position);
-        }
+        parallel_for(0, count, [&](int i)
+                     {
+                         ParticleObject &particle = _particles[i];
+                         particle.prevPosition = particle.position;
+                         SDL_FPoint positionDelta = Scale(particle.velocity, (float)simulationDeltaTime * Globals::coefficientOfRestitution);
+                         particle.position = Add(particle.position, positionDelta);
+                         // _positions.push_back(particle.position);
+                     });
     }
 
     {
@@ -237,50 +241,41 @@ void Particle::update(const double &simulationDeltaTime, SDL_FPoint mousePos)
     // collision with the screen
     {
         PERF_SCOPE("SPH::screenCollision");
-        for (size_t i = 0; i < count; i++)
-        {
-            ParticleObject &particle = _particles[i];
-            Physics2D::checkCollisionBetweenObjAndScreen(particle);
-        }
+        parallel_for(0, count, [&](int i)
+                     { Physics2D::checkCollisionBetweenObjAndScreen(_particles[i], simBox); });
     }
 
     // compute next velocity
     {
         PERF_SCOPE("SPH::integrateVelocity");
-        for (size_t i = 0; i < count; i++)
-        {
+        parallel_for(0, count, [&](int i)
+                     {
             ParticleObject &particle = _particles[i];
             SDL_FPoint velocity = Scale(Sub(particle.position, particle.prevPosition), 1.0f / (float)simulationDeltaTime);
-            particle.velocity = velocity;
-        }
+            particle.velocity = velocity; });
     }
 }
 
 void Particle::render(SDL_Renderer *r) const
 {
-    const size_t count = _particles.size();
-    SDL_FColor color = {0.1f, 0.1f, 0.9f, 1.0f};
+    const SDL_FColor defaultColor = {0.1f, 0.1f, 0.9f, 1.0f};
 
     if (Globals::circles)
         Shape::glowField(r, _particles.begin(), _particles.end(), [](size_t)
                          { return Colors::CyanF(); }, _glow);
 
-    // Render each particle
     if (Globals::particles)
     {
         const float radius = Globals::particleSize * Globals::pixelsPerMeter;
-        for (size_t i = 0; i < count; i++)
-        {
-            const ParticleObject &p = _particles[i];
-
-            const SDL_FPoint posPx = {
-                p.position.x * Globals::pixelsPerMeter,
-                p.position.y * Globals::pixelsPerMeter};
-
-            if (Globals::speedColoring)
-                color = Colors::particleColor(p, 2.0f);
-            Shape::shape(r, posPx, radius, Globals::PARTICLE_RESOLUTION, color);
-        }
+        Shape::shapesBatch(
+            r, _particles.begin(), _particles.end(),
+            radius, Globals::PARTICLE_RESOLUTION,
+            [&](size_t i)
+            {
+                return Globals::speedColoring
+                           ? Colors::particleColor(_particles[i], 2.0f)
+                           : defaultColor;
+            });
     }
 }
 

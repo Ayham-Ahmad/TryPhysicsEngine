@@ -59,39 +59,45 @@ SDL_FPoint Physics2D::getCollisionImpulseVector(const SDL_FPoint &collisionNorma
 }
 
 // Check collision with the screen
-void Physics2D::checkCollisionBetweenObjAndScreen(ParticleObject &p)
+void Physics2D::checkCollisionBetweenObjAndScreen(ParticleObject &p, const SDL_Rect &box)
 {
     const float pSize = Globals::particleSize;
+    
+    const float pixelsPerMeter = Globals::pixelsPerMeter;
+    const float left = box.x / pixelsPerMeter;
+    const float right = (box.x + box.w) / pixelsPerMeter;
+    const float top = box.y / pixelsPerMeter;
+    const float bottom = (box.y + box.h) / pixelsPerMeter;
 
     if (Globals::screenCollision)
     {
         // Vertical collision
-        if (p.position.y + pSize > Globals::worldH)
+        if (p.position.y + pSize > bottom)
         {
-            p.position.y = Globals::worldH - pSize;
+            p.position.y = bottom - pSize;
 
             if (p.velocity.y > 0.0f)
                 p.velocity.y *= -Globals::coefficientOfRestitution;
         }
-        else if (p.position.y - pSize < 0.0f)
+        else if (p.position.y - pSize < top)
         {
-            p.position.y = pSize;
+            p.position.y = top + pSize;
 
             if (p.velocity.y < 0.0f)
                 p.velocity.y *= -Globals::coefficientOfRestitution;
         }
 
         // Horizontal collision
-        if (p.position.x + pSize > Globals::worldW)
+        if (p.position.x + pSize > right)
         {
-            p.position.x = Globals::worldW - pSize;
+            p.position.x = right - pSize;
 
             if (p.velocity.x > 0.0f)
                 p.velocity.x *= -Globals::coefficientOfRestitution;
         }
-        else if (p.position.x - pSize < 0.0f)
+        else if (p.position.x - pSize < left)
         {
-            p.position.x = pSize;
+            p.position.x = left + pSize;
 
             if (p.velocity.x < 0.0f)
                 p.velocity.x *= -Globals::coefficientOfRestitution;
@@ -99,17 +105,17 @@ void Physics2D::checkCollisionBetweenObjAndScreen(ParticleObject &p)
     }
     else
     {
-        // Vertical screen wrapping
-        if (p.position.y - pSize > Globals::worldH)
-            p.position.y = -pSize;
-        else if (p.position.y + pSize < 0.0f)
-            p.position.y = Globals::worldH + pSize;
+        // Vertical wrapping
+        if (p.position.y - pSize > bottom)
+            p.position.y = top - pSize;
+        else if (p.position.y + pSize < top)
+            p.position.y = bottom + pSize;
 
-        // Horizontal screen wrapping
-        if (p.position.x - pSize > Globals::worldW)
-            p.position.x = -pSize;
-        else if (p.position.x + pSize < 0.0f)
-            p.position.x = Globals::worldW + pSize;
+        // Horizontal wrapping
+        if (p.position.x - pSize > right)
+            p.position.x = left - pSize;
+        else if (p.position.x + pSize < left)
+            p.position.x = right + pSize;
     }
 }
 
