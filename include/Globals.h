@@ -4,7 +4,7 @@ class Globals
 {
 public:
     // Change this value to choose how many simulations run.
-    inline static constexpr int simCount = 1;
+    inline static constexpr int simCount = 4;
     static_assert(simCount > 0, "simCount must be greater than zero");
 
     // --- Real-world (SI) units; pixelsPerMeter converts to screen pixels ---

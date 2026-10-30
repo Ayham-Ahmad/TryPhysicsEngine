@@ -90,14 +90,12 @@ void Game::init()
         }
 
         _applySimulationSettings(i);
-        const auto &box = _sims[i].box;
-        _sims[i].particles.init(r, box);
-        _grid.init(box);
+        _sims[i].particles.init(r, _sims[i].box);
     }
 
     // Initialize grid
-    // _applySimulationSettings(0);
-    // _grid.init();
+    _applySimulationSettings(0);
+    _grid.init();
 
     // updating graph limits
     // _graph.updateLimits();
@@ -316,17 +314,18 @@ void Game::update()
     // Update particles
     while (started && _accumulator >= STEP_TIME)
     {
-        if (Globals::emitters)
-        {
-            PERF_SCOPE("Emitter::update");
-            // _emitters.update(STEP_TIME, _particles.getParticlesList(), 0.01f);
-        }
         {
             PERF_SCOPE("Particle::update");
             for (int i = 0; i < Globals::simCount; i++)
             {
                 _applySimulationSettings(i);
                 _sims[i].particles.update(STEP_TIME, mousePos);
+
+                if (Globals::emitters)
+                {
+                    PERF_SCOPE("Emitter::update");
+                    _emitters.update(STEP_TIME, _sims[i].particles.getParticlesList(), 0.01f);
+                }
             }
         }
         _accumulator -= STEP_TIME;
@@ -337,7 +336,7 @@ void Game::update()
     {
         PERF_SCOPE("Grid::update");
         _applySimulationSettings(0);
-        _grid.update(_sims[0].particles.getParticlesList(), _sims[0].box);
+        _grid.update(_sims[0].particles.getParticlesList());
     }
 
     // Update FPS

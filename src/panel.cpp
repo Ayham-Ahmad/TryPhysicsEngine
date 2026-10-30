@@ -56,8 +56,8 @@ void Panel::init()
         {"target_density", 0.624, 0.1f, 20.0f, true, false},
         {"kNear", 30.0f, 0.1f, 100.0f, true, false},
         {"k", 49.0f, 0.1f, 200.0f, true, false},
-        {"sigma", 0.01f, 0.0f, 10.0f, true, false},
-        {"beta", 0.01f, 0.0f, 10.0f, true, false},
+        {"sigma", 0.01f, 0.0f, 500.0f, true, false},
+        {"beta", 0.01f, 0.0f, 500.0f, true, false},
     };
 
     for (auto &s : _sliders)
