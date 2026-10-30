@@ -10,8 +10,8 @@
 class Grid
 {
 public:
-    void init();
-    void update(const std::vector<ParticleObject> &particles);
+    void init(const SDL_Rect &box);
+    void update(const std::vector<ParticleObject> &particles, const SDL_Rect &box);
     void render(SDL_Renderer *r, const bool isStarted) const;
 
 private:

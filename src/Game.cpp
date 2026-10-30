@@ -1,4 +1,6 @@
 #include "game.h"
+#include <algorithm>
+#include <cmath>
 
 // Constructor
 Game::Game()
@@ -59,38 +61,43 @@ Game::~Game()
 
 void Game::init()
 {
-    Globals::particlesCount = _panel.value("count");
-    Globals::particlesSpacing = _panel.value("spacing");
-    Globals::particleSize = _panel.value("size");
-    Globals::interatctionRadius = Globals::particleSize * 4;
-    // Globals::smoothingRadius = _panel.value("smoothingRadius");
-    // Globals::particleMass = _panel.value("mass");
+    const int columns = static_cast<int>(std::ceil(std::sqrt(static_cast<float>(Globals::simCount))));
+    const int rows = (Globals::simCount + columns - 1) / columns;
+    const int screenWidth = static_cast<int>(Globals::sw);
+    const int screenHeight = static_cast<int>(Globals::sh);
 
-    // Fluid solver parameters (double density relaxation)
-    Globals::targetDensity = _panel.value("target_density");
-    Globals::kNear = _panel.value("kNear");
-    Globals::k = _panel.value("k");
+    for (int i = 0; i < Globals::simCount; i++)
+    {
+        if (Globals::simCount == 1)
+        {
+            constexpr int boxWidth = 800;
+            constexpr int boxHeight = 600;
+            _sims[i].box = {
+                (screenWidth - boxWidth) / 2,
+                (screenHeight - boxHeight) / 2,
+                boxWidth,
+                boxHeight};
+        }
+        else
+        {
+            const int column = i % columns;
+            const int row = i / columns;
+            const int left = column * screenWidth / columns;
+            const int right = (column + 1) * screenWidth / columns;
+            const int top = row * screenHeight / rows;
+            const int bottom = (row + 1) * screenHeight / rows;
+            _sims[i].box = {left, top, right - left, bottom - top};
+        }
 
-    // viscosity
-    Globals::Sigma = _panel.value("sigma");
-    Globals::Beta = _panel.value("beta");
-
-    // Globals::pressureMultiplier = _panel.value("pressure");
-
-    // Initialize particles
-    const int halfWidth = static_cast<int>(Globals::sw / 2.0f);
-    const int halfHeight = static_cast<int>(Globals::sh / 2.0f);
-    _sims[0].box = {0, 0, halfWidth, halfHeight};
-    _sims[1].box = {halfWidth, 0, halfWidth, halfHeight};
-    _sims[2].box = {0, halfHeight, halfWidth, halfHeight};
-    _sims[3].box = {halfWidth, halfHeight, halfWidth, halfHeight};
-
-    parallel_for(0, 4, [&](int i)
-                 { auto &sim = _sims[i];
-                    sim.particles.init(r, sim.box); });
+        _applySimulationSettings(i);
+        const auto &box = _sims[i].box;
+        _sims[i].particles.init(r, box);
+        _grid.init(box);
+    }
 
     // Initialize grid
-    _grid.init();
+    // _applySimulationSettings(0);
+    // _grid.init();
 
     // updating graph limits
     // _graph.updateLimits();
@@ -98,11 +105,39 @@ void Game::init()
     // Initialize emitters
     _emitters.init();
 
-    int count = _sims[0].particles.getParticlesList().size();
-    int total = count * 4;
+    _updateParticleCountTexts();
+}
 
-    _panel.setText("count", count);
-    _panel.setText("totalCount", total);
+void Game::_applySimulationSettings(int simulationIndex)
+{
+    Globals::gravity = _panel.value("gravity", simulationIndex);
+    Globals::particlesCount = _panel.value("count", simulationIndex);
+    Globals::particlesSpacing = _panel.value("spacing", simulationIndex);
+    Globals::particleSize = _panel.value("size", simulationIndex);
+    Globals::interatctionRadius = Globals::particleSize * 4.0f;
+    Globals::targetDensity = _panel.value("target_density", simulationIndex);
+    Globals::kNear = _panel.value("kNear", simulationIndex);
+    Globals::k = _panel.value("k", simulationIndex);
+    Globals::Sigma = _panel.value("sigma", simulationIndex);
+    Globals::Beta = _panel.value("beta", simulationIndex);
+    const float particleRadiusPixels = Globals::particleSize * Globals::pixelsPerMeter;
+    Globals::PARTICLE_RESOLUTION = std::clamp(
+        static_cast<int>(std::ceil(particleRadiusPixels * 2.0f)),
+        3,
+        32);
+}
+
+void Game::_updateParticleCountTexts()
+{
+    const int activeSimulation = _panel.activeSimulation();
+    const int activeCount = static_cast<int>(_sims[activeSimulation].particles.getParticlesList().size());
+    int totalCount = 0;
+    for (const auto &sim : _sims)
+        totalCount += static_cast<int>(sim.particles.getParticlesList().size());
+
+    _panel.setText("count", static_cast<float>(activeCount));
+    _panel.setText("totalCount", static_cast<float>(totalCount));
+    _panel.setText("res", Globals::PARTICLE_RESOLUTION);
 }
 
 // --- FPS Handling ---
@@ -212,106 +247,40 @@ void Game::_listener()
 
     // Emitter controls handled via globals in ParticleEmitter
 
-    // Fluid solver parameters (double density relaxation) - applied live so they
-    // can be tweaked while the simulation is running
-    if (_panel.sliderListener("target_density"))
-    {
-        Globals::targetDensity = _panel.value("target_density");
-    }
-
-    if (_panel.sliderListener("kNear"))
-    {
-        Globals::kNear = _panel.value("kNear");
-    }
-
-    if (_panel.sliderListener("k"))
-    {
-        Globals::k = _panel.value("k");
-    }
-
-    if (_panel.sliderListener("sigma"))
-    {
-        Globals::Sigma = _panel.value("sigma");
-    }
-
-    if (_panel.sliderListener("beta"))
-    {
-        Globals::Beta = _panel.value("beta");
-    }
+    _applySimulationSettings(_panel.activeSimulation());
 
     // Randomize the particles positions
     if (_panel.btnListener("random"))
     {
-        parallel_for(0, 4, [&](int i)
-                     { auto &sim = _sims[i];
-                    sim.particles.init(r, sim.box); });
+        for (int i = 0; i < Globals::simCount; i++)
+        {
+            _applySimulationSettings(i);
+            _sims[i].particles.init(r, _sims[i].box);
+        }
     }
 }
 
 void Game::_sliders_lestener()
 {
+    const bool countChanged = _panel.sliderListener("count");
     const bool spacingChanged = _panel.sliderListener("spacing");
     const bool sizeChanged = _panel.sliderListener("size");
-    const bool massChanged = _panel.sliderListener("mass");
+    _panel.sliderListener("target_density");
 
-    // Update particle settings if changed
-    if (_panel.sliderListener("count"))
+    if (countChanged || spacingChanged || sizeChanged)
     {
-        Globals::particlesCount = _panel.value("count");
-        parallel_for(0, 4, [&](int i)
-                     { auto &sim = _sims[i];
-                    sim.particles.init(r, sim.box); });
-        // _graph.updateLimits();
-        int count = _sims[0].particles.getParticlesList().size();
-        int total = count * 4;
-        _panel.setText("count", count);
-        _panel.setText("totalCount", total);
+        for (int i = 0; i < Globals::simCount; i++)
+        {
+            _applySimulationSettings(i);
+            _sims[i].particles.init(r, _sims[i].box);
+        }
+
+        const float particleRadiusPixels = Globals::particleSize * Globals::pixelsPerMeter;
+        Globals::PARTICLE_RESOLUTION = std::clamp(
+            static_cast<int>(std::ceil(particleRadiusPixels * 2.0f)),
+            3,
+            32);
     }
-
-    if (spacingChanged)
-    {
-        Globals::particlesSpacing = _panel.value("spacing");
-        parallel_for(0, 4, [&](int i)
-                     { auto &sim = _sims[i];
-                    sim.particles.init(r, sim.box); });
-    }
-
-    if (sizeChanged)
-    {
-        Globals::particleSize = _panel.value("size");
-        parallel_for(0, 4, [&](int i)
-                     { auto &sim = _sims[i];
-                    sim.particles.init(r, sim.box); });
-
-        Globals::interatctionRadius = Globals::particleSize * 4;
-    }
-
-    // Update grid settings if changed
-    // if (_panel.sliderListener("gridSize"))
-    // {
-    //     Globals::gridSize = _panel.value("gridSize");
-    //     _grid.init();
-    // }
-
-    // Update smoothing radius if changed
-    if (_panel.sliderListener("smoothingRadius"))
-    {
-        Globals::smoothingRadius = _panel.value("smoothingRadius");
-    }
-
-    // Update particle mass if changed (applies live to the equations)
-    if (massChanged)
-    {
-        Globals::particleMass = _panel.value("mass");
-        // _graph.updateLimits();
-    }
-
-    // Manual override for the target density used by pressure calculations
-    // if (_panel.sliderListener("targetDensity"))
-    // {
-    //     Globals::targetDensity = _panel.value("targetDensity");
-    //     _graph.updateLimits();
-    // }
 }
 
 // --- update ---
@@ -326,11 +295,10 @@ void Game::update()
     _listener();
 
     const bool started = _panel.buttonValue("start");
+    _sliders_lestener();
     if (!started)
-    {
-        _sliders_lestener();
         _accumulator = 0.0;
-    }
+    _updateParticleCountTexts();
 
     // Don't update if paused
     if (_panel.buttonValue("pause"))
@@ -345,8 +313,6 @@ void Game::update()
     if (started)
         _accumulator += Globals::deltaTime * _panel.value("speed");
 
-    Globals::gravity = _panel.value("gravity");
-
     // Update particles
     while (started && _accumulator >= STEP_TIME)
     {
@@ -357,8 +323,11 @@ void Game::update()
         }
         {
             PERF_SCOPE("Particle::update");
-            parallel_for(0, 4, [&](int i)
-                         { _sims[i].particles.update(STEP_TIME, mousePos); });
+            for (int i = 0; i < Globals::simCount; i++)
+            {
+                _applySimulationSettings(i);
+                _sims[i].particles.update(STEP_TIME, mousePos);
+            }
         }
         _accumulator -= STEP_TIME;
     }
@@ -367,7 +336,8 @@ void Game::update()
     if (Globals::grid)
     {
         PERF_SCOPE("Grid::update");
-        _grid.update(_sims[0].particles.getParticlesList());
+        _applySimulationSettings(0);
+        _grid.update(_sims[0].particles.getParticlesList(), _sims[0].box);
     }
 
     // Update FPS
@@ -387,11 +357,17 @@ void Game::render()
 
     // Render Grid
     if (Globals::grid)
+    {
+        _applySimulationSettings(0);
         _grid.render(r, _panel.buttonValue("start"));
+    }
 
     // Render particles
-    parallel_for(0, 4, [&](int i)
-                 { _sims[i].particles.render(r); });
+    for (int i = 0; i < Globals::simCount; i++)
+    {
+        _applySimulationSettings(i);
+        _sims[i].particles.render(r);
+    }
 
     // Render panel (capped)
     _panelTimer += Globals::deltaTime;

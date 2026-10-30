@@ -10,6 +10,7 @@
 #include <cmath>
 
 #include "colors.h"
+#include "Globals.h"
 #include "text.h"
 #include "window.h"
 
@@ -62,10 +63,14 @@ public:
     void render(const float mouseX, const float mouseY);
 
     float value(const std::string &id) const;
+    float value(const std::string &id, int simulationIndex) const;
     bool buttonValue(const std::string &id) const;
     bool btnListener(const std::string &id);
     bool sliderListener(const std::string &id);
+    bool sliderListener(const std::string &id, int simulationIndex);
     bool isEditing() const;
+    int activeSimulation() const;
+    void setActiveSimulation(int simulationIndex);
 
     void setText(const std::string &id, float value);
 
@@ -108,6 +113,8 @@ private:
     static constexpr float VALUE_BOX_GAP = 6.0f;
     static constexpr float VALUE_BOX_PADDING = 5.0f;
     static constexpr int VALUE_FONT_SIZE = 12;
+    static constexpr float SIM_TAB_H = 28.0f;
+    static constexpr int SIM_COUNT = Globals::simCount;
 
     void rebuildMaps();
     void rebuildLayout();
@@ -129,6 +136,7 @@ private:
     static bool isActionButton(const std::string &id);
     static float normalizeValue(float value, float min, float max);
     static float clamp01(float value);
+    static bool isSimulationSpecificSlider(const std::string &id);
     void handleSliderValueDrag(int idx, const SDL_Event &event);
     void handleKnobEventClick(int idx, const SDL_Event &event);
     void handleButtonEvent(const SDL_Event &event);
@@ -136,6 +144,7 @@ private:
     void setVisibility(const std::string &id, bool visibility);
     static bool isMouseInRect(const SDL_FRect &rect, const float mouseX, const float mouseY);
     static std::string fmtFloat(float v);
+    bool handleSimulationTabClick(float mouseX, float mouseY);
 
     std::unordered_map<std::string, int> _textIdx;
     std::unordered_map<std::string, int> _sliderIdx;
@@ -146,9 +155,14 @@ private:
     std::vector<SDL_FRect> _boxR;
     std::vector<SDL_FRect> _btnR;
     std::vector<bool> _sliderLockedCache;
+    std::array<std::vector<float>, SIM_COUNT> _simSliderValues;
+    std::array<std::vector<bool>, SIM_COUNT> _simSliderChanged;
+    std::array<SDL_FRect, SIM_COUNT> _simTabR{};
 
     float _slidersY = 0.0f;
+    float _simTabsY = 0.0f;
     int _checkboxRows = 0;
+    int _activeSimulation = 0;
     int _activeSlider = -1;
     int _editingIndex = -1;
     float _sw = 0.0f;

@@ -24,6 +24,7 @@ void Panel::init()
     _texts = {
         {"count", "Count: "},
         {"totalCount", "Total count: "},
+        {"res", "Res: "},
     };
 
     for (size_t ti = 0; ti < _texts.size(); ti++) _texts[ti].y = TEXT_TOP + (float)ti * TEXT_SPACING;
@@ -55,8 +56,8 @@ void Panel::init()
         {"target_density", 0.624, 0.1f, 20.0f, true, false},
         {"kNear", 30.0f, 0.1f, 100.0f, true, false},
         {"k", 49.0f, 0.1f, 200.0f, true, false},
-        {"sigma", 0.01f, 0.0f, 5.0f, true, false},
-        {"beta", 0.01f, 0.0f, 5.0f, true, false},
+        {"sigma", 0.01f, 0.0f, 10.0f, true, false},
+        {"beta", 0.01f, 0.0f, 10.0f, true, false},
     };
 
     for (auto &s : _sliders)
@@ -69,6 +70,14 @@ void Panel::init()
         s.textBuffer.clear();
         s.cachedText = fmtf(s.initialValue);
     }
+    for (auto &simulationValues : _simSliderValues)
+    {
+        simulationValues.resize(_sliders.size());
+        for (size_t i = 0; i < _sliders.size(); i++)
+            simulationValues[i] = _sliders[i].value;
+    }
+    for (auto &simulationChanges : _simSliderChanged)
+        simulationChanges.assign(_sliders.size(), false);
     for (auto &b : _buttons) { b.changed = false; }
 
     rebuildMaps();
@@ -103,7 +112,11 @@ void Panel::rebuildMaps()
 void Panel::rebuildLayout()
 {
     const float textsBottom = TEXT_TOP + (float)_texts.size() * TEXT_SPACING;
-    const float buttonsY = textsBottom + SECTION_SPACING;
+    _simTabsY = textsBottom + SECTION_SPACING;
+    const float tabWidth = (PANEL_W - PANEL_MARGIN * 2.0f) / SIM_COUNT;
+    for (int i = 0; i < SIM_COUNT; i++)
+        _simTabR[i] = {PANEL_MARGIN + i * tabWidth, _simTabsY, tabWidth - BUTTON_GAP, SIM_TAB_H};
+    const float buttonsY = _simTabsY + SIM_TAB_H + SECTION_SPACING;
     int ai = 0;
     for (size_t i = 0; i < _buttons.size(); i++)
     {
@@ -155,7 +168,7 @@ float Panel::panelHeight() const
 {
     if (_texts.empty() && _sliders.empty() && _buttons.empty()) return PANEL_MARGIN * 2.0f;
     const float textsBottom = TEXT_TOP + (float)_texts.size() * TEXT_SPACING;
-    const float buttonsY = textsBottom + SECTION_SPACING;
+    const float buttonsY = textsBottom + SECTION_SPACING + SIM_TAB_H + SECTION_SPACING;
     const float checkboxesY = buttonsY + BUTTON_H + SECTION_SPACING;
     int cb = 0;
     for (const auto &b : _buttons) if (!isActionButton(b.id)) cb++;
@@ -177,6 +190,11 @@ float Panel::sliderWidth() { return PANEL_W - SLIDER_X - PANEL_MARGIN; }
 float Panel::trackWidth() { return sliderWidth() - VALUE_BOX_W - VALUE_BOX_GAP; }
 float Panel::normalizeValue(float v, float min, float max) { if (max == min) return 0.0f; return (v - min) / (max - min); }
 float Panel::clamp01(float v) { if (v < 0.0f) return 0.0f; if (v > 1.0f) return 1.0f; return v; }
+bool Panel::isSimulationSpecificSlider(const std::string &id)
+{
+    return id != "speed" && id != "count" && id != "size" &&
+           id != "spacing" && id != "target_density";
+}
 bool Panel::sliderLocked(int idx) const { if (idx < 0 || idx >= (int)_sliderLockedCache.size()) return false; return _sliderLockedCache[idx]; }
 SDL_FRect Panel::knobRectFrom(const Slider &s) { return {SLIDER_X + s.value * (trackWidth() - SLIDER_H), s.y, SLIDER_H, SLIDER_H}; }
 SDL_FRect Panel::valueBoxRectFrom(const Slider &s) { return {SLIDER_X + trackWidth() + VALUE_BOX_GAP, s.y, VALUE_BOX_W, SLIDER_H}; }
@@ -197,6 +215,52 @@ float Panel::value(const std::string &id) const
     if (it == _sliderIdx.end()) return 0.0f;
     const auto &s = _sliders[it->second];
     return s.min + s.value * (s.max - s.min);
+}
+
+float Panel::value(const std::string &id, int simulationIndex) const
+{
+    auto it = _sliderIdx.find(id);
+    if (it == _sliderIdx.end() || simulationIndex < 0 || simulationIndex >= SIM_COUNT)
+        return 0.0f;
+
+    const int sliderIndex = it->second;
+    const auto &slider = _sliders[sliderIndex];
+    const float normalizedValue = isSimulationSpecificSlider(slider.id)
+                                      ? _simSliderValues[simulationIndex][sliderIndex]
+                                      : slider.value;
+    return slider.min + normalizedValue * (slider.max - slider.min);
+}
+
+int Panel::activeSimulation() const
+{
+    return _activeSimulation;
+}
+
+void Panel::setActiveSimulation(int simulationIndex)
+{
+    if (simulationIndex < 0 || simulationIndex >= SIM_COUNT || simulationIndex == _activeSimulation)
+        return;
+
+    endEditing(true);
+    if (_activeSlider >= 0 && _activeSlider < (int)_sliders.size())
+        _sliders[_activeSlider].dragging = false;
+    _activeSlider = -1;
+    _activeSimulation = simulationIndex;
+
+    for (size_t i = 0; i < _sliders.size(); i++)
+    {
+        Slider &slider = _sliders[i];
+        const bool simulationSpecific = isSimulationSpecificSlider(slider.id);
+        if (simulationSpecific)
+            slider.value = _simSliderValues[_activeSimulation][i];
+        if (simulationSpecific)
+            slider.changed = false;
+        slider.dragging = false;
+        slider.cachedText = fmtf(value(slider.id));
+    }
+
+    _editingIndex = -1;
+    rebuildLayout();
 }
 
 bool Panel::buttonValue(const std::string &id) const
@@ -223,10 +287,32 @@ bool Panel::btnListener(const std::string &id)
 
 bool Panel::sliderListener(const std::string &id)
 {
+    return sliderListener(id, _activeSimulation);
+}
+
+bool Panel::sliderListener(const std::string &id, int simulationIndex)
+{
     auto it = _sliderIdx.find(id);
-    if (it == _sliderIdx.end()) return false;
+    if (it == _sliderIdx.end() || simulationIndex < 0 || simulationIndex >= SIM_COUNT)
+        return false;
     int idx = it->second;
-    if (_sliders[idx].listener && _sliders[idx].changed) { _sliders[idx].changed = false; return true; }
+    if (!isSimulationSpecificSlider(id))
+    {
+        if (_sliders[idx].listener && _sliders[idx].changed)
+        {
+            _sliders[idx].changed = false;
+            return true;
+        }
+        return false;
+    }
+
+    if (_sliders[idx].listener && _simSliderChanged[simulationIndex][idx])
+    {
+        _simSliderChanged[simulationIndex][idx] = false;
+        if (simulationIndex == _activeSimulation)
+            _sliders[idx].changed = false;
+        return true;
+    }
     return false;
 }
 
@@ -279,6 +365,12 @@ void Panel::commitEditing()
     s.value = normalizeValue(typed, s.min, s.max);
     s.cachedText = fmtf(typed);
     if (s.listener && value(s.id) != prev) s.changed = true;
+    if (isSimulationSpecificSlider(s.id))
+    {
+        _simSliderValues[_activeSimulation][_editingIndex] = s.value;
+        if (s.listener && value(s.id) != prev)
+            _simSliderChanged[_activeSimulation][_editingIndex] = true;
+    }
     _knobR[_editingIndex] = {SLIDER_X + s.value * (trackWidth() - SLIDER_H), s.y, SLIDER_H, SLIDER_H};
 }
 
@@ -292,6 +384,12 @@ void Panel::handleSliderValueDrag(int idx, const SDL_Event &e)
     s.value = clamp01(s.value);
     _knobR[idx] = {SLIDER_X + s.value * (trackWidth() - SLIDER_H), s.y, SLIDER_H, SLIDER_H};
     if (s.listener && s.value != old) s.changed = true;
+    if (isSimulationSpecificSlider(s.id))
+    {
+        _simSliderValues[_activeSimulation][idx] = s.value;
+        if (s.listener && s.value != old)
+            _simSliderChanged[_activeSimulation][idx] = true;
+    }
 }
 
 void Panel::handleKnobEventClick(int idx, const SDL_Event &e)
@@ -401,6 +499,19 @@ bool Panel::handleTextBoxInput(const SDL_Event &e)
     return true;
 }
 
+bool Panel::handleSimulationTabClick(float mouseX, float mouseY)
+{
+    for (int i = 0; i < SIM_COUNT; i++)
+    {
+        if (isMouseInRect(_simTabR[i], mouseX, mouseY))
+        {
+            setActiveSimulation(i);
+            return true;
+        }
+    }
+    return false;
+}
+
 void Panel::handleEvent(const SDL_Event &e)
 {
     if (!window || eventWindowID(e) != windowID) return;
@@ -413,6 +524,11 @@ void Panel::handleEvent(const SDL_Event &e)
     if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT)
     {
         if (handleTextBoxClick(e, e.button.x, e.button.y)) return;
+        if (handleSimulationTabClick(e.button.x, e.button.y))
+        {
+            endEditing(true);
+            return;
+        }
         endEditing(true);
         handleButtonEvent(e);
         if (_slidersY <= 0.0f) return;
@@ -455,6 +571,21 @@ void Panel::render(const float mouseX, const float mouseY)
         std::string s = t.label;
         s += fmtf(t.value);
         drawText(r, s, TEXT_X, t.y, 14);
+    }
+
+    for (int i = 0; i < SIM_COUNT; i++)
+    {
+        const auto &tab = _simTabR[i];
+        if (i == _activeSimulation)
+            Colors::MustardYellow(r);
+        else if (isMouseInRect(tab, mouseX, mouseY))
+            Colors::MediumGray(r);
+        else
+            Colors::DarkGray(r);
+        SDL_RenderFillRect(r, &tab);
+        SDL_SetRenderDrawColorFloat(r, 0.1f, 0.1f, 0.1f, 1.0f);
+        SDL_RenderRect(r, &tab);
+        drawText(r, std::to_string(i + 1), tab.x + 10.0f, tab.y + 5.0f, 14);
     }
 
     for (size_t i = 0; i < _buttons.size(); i++)

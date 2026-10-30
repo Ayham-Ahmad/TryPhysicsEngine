@@ -3,6 +3,10 @@
 class Globals
 {
 public:
+    // Change this value to choose how many simulations run.
+    inline static constexpr int simCount = 1;
+    static_assert(simCount > 0, "simCount must be greater than zero");
+
     // --- Real-world (SI) units; pixelsPerMeter converts to screen pixels ---
     inline static float pixelsPerMeter = 300.0f;
     inline static float gravity = 9.8f; // m/s^2 (Earth)
@@ -13,7 +17,7 @@ public:
     inline static float particlesCount = 9000.774f;
     // The lattice pitch used by Particle::init is particlesSpacing + 2 * particleSize
     inline static float particlesSpacing = 0.02f; // m (gap between particle surfaces)
-    inline static constexpr int PARTICLE_RESOLUTION = 32;
+    inline static int PARTICLE_RESOLUTION = 32;
     inline static float particleMass = 0.4f; // kg
     inline static bool particles = true;
     inline static bool random = false;

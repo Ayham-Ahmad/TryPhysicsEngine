@@ -66,6 +66,8 @@ private:
     void _showFPS() const;
     void _listener();
     void _sliders_lestener();
+    void _applySimulationSettings(int simulationIndex);
+    void _updateParticleCountTexts();
 
     // --- Vars ---
 private:
@@ -74,7 +76,7 @@ private:
     Graph _graph;
     ParticleEmitter _emitters;
 
-    Box _sims[4] = {};
+    std::vector<Box> _sims = std::vector<Box>(Globals::simCount);
 
     // --- Timers ---
     double _panelTimer = 0.0;
