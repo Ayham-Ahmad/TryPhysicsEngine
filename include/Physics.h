@@ -7,6 +7,7 @@
 
 #include "particleobject.h"
 #include "globals.h"
+#include "fluidHashGrid.h"
 
 class ParticleObject;
 
@@ -14,6 +15,18 @@ class ParticleObject;
 class Physics2D
 {
 public:
+    Physics2D() = default;
+
+    // Densities and viscosity borrow the particle list and neighbour grid
+    Physics2D(std::vector<ParticleObject> &particles, FluidHashGrid &grid)
+        : _particles(&particles), _grid(&grid)
+    {
+    }
+
+    // Density relaxation (Clavet et al. 2005) and viscosity passes
+    void density(const double &simulationDeltaTime);
+    void viscosity(const double &simulationDeltaTime);
+
     static SDL_FPoint differenceVector(const SDL_FPoint &firstPosition, const SDL_FPoint &secondPosition) noexcept;
     static float squaredMagnitude(const SDL_FPoint &vector) noexcept;
     static float distance(const SDL_FPoint &firstPosition, const SDL_FPoint &secondPosition) noexcept;
@@ -29,4 +42,8 @@ public:
 
     // Check collision between particles
     static void checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::vector<ParticleObject> &particles);
+
+private:
+    std::vector<ParticleObject> *_particles = nullptr;
+    FluidHashGrid *_grid = nullptr;
 };

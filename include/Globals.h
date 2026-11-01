@@ -4,8 +4,9 @@ class Globals
 {
 public:
     // Change this value to choose how many simulations run.
-    inline static constexpr int simCount = 4;
+    inline static constexpr int simCount = 8;
     static_assert(simCount > 0, "simCount must be greater than zero");
+    inline static bool simBox = false;
 
     // --- Real-world (SI) units; pixelsPerMeter converts to screen pixels ---
     inline static float pixelsPerMeter = 300.0f;
@@ -68,8 +69,43 @@ public:
     // explodes.
     inline static float k = 65.0f;
 
+    // Viscosity (Clavet et al. 2005). Particles that are moving towards each other
+    // get a damping impulse
+    //     impulse = dt * (1 - q) * (Sigma * u + Beta * u * u)
+    // where u is the closing speed along the line between them. Both constants are
+    // multiplied by dt (1/120 s here), so they have to be large to be feelable:
+    // ~0 is water, a few hundred is syrup, ~300 is honey, thousands turn the
+    // fluid into a near-solid.
     inline static float Sigma = 0.0f;
     inline static float Beta = 0.0f;
+
+    // --- Spring plasticity (Clavet et al. 2005) ---
+    // A spring is created between every pair of particles closer than
+    // interatctionRadius. It behaves like a tiny elastic band: when the pair is
+    // compressed it pushes them apart, when it is stretched it pulls them together.
+    // The passes run right after the density pass, so springs add the elastic /
+    // gooey part on top of the fluid part.
+
+    // gamma: dead zone around the rest length, as a fraction of it (unitless).
+    // The rest length is only adjusted when the pair's actual distance drifts more
+    // than gamma * restLength away from it, so 0.13 means the inner +-13% is
+    // ignored. Small -> springs react to tiny changes (softer, more jelly-like);
+    // large -> springs ignore small drifts and feel stiffer.
+    inline static float gamma = 0.13f;
+
+    // plasticity: how fast a rest length follows the real distance, per second.
+    // It is multiplied by dt, so at dt = 1/120 s a value of 100 closes ~83% of the
+    // gap each step. Small -> springs keep their original length (elastic memory,
+    // the fluid bounces back); large -> springs permanently deform to whatever
+    // shape the fluid is squeezed into (plastic, keeps the new shape).
+    inline static float plasticity = 100.0f;
+
+    // springStiffness: how hard a spring corrects towards its rest length. The
+    // displacement is scaled by dt^2 * springStiffness * (1 - L/h) * (L - distance),
+    // so at dt = 1/120 s it must be in the thousands to be visible next to the
+    // density pass: below ~1000 the springs are lost in the noise, ~20000 gives a
+    // clearly elastic fluid, and above ~50000 the spring pass starts to explode.
+    inline static float springStiffness = 20000.0f;
 
     inline static bool graph = false;
 

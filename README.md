@@ -117,6 +117,46 @@ float displacementTerm = dt * dt * (pressure * (1 - q) + pressureNear * (1 - q) 
 
 ![Fluid simulation](images/fluid.gif)
 
+## Seventh Step: Viscosity
+
+The density pass makes the particles behave like a fluid, but on its own it is almost frictionless. Viscosity adds a damping impulse between particles that are moving towards each other, using the same neighbours found by the hash. With `q` being the distance divided by the interaction radius and `u` the closing speed along the line between the two particles:
+
+$$ I = dt(1 - q)(\sigma u + \beta u^2) $$
+
+```cpp
+float u = Dot(Sub(particleA.velocity, particleB.velocity), rij);
+float ITerm = dt * (1.0f - q) * (Globals::Sigma * u + Globals::Beta * u * u);
+```
+
+`Sigma` is the linear term and `Beta` the quadratic one, so `Beta` dominates at high closing speeds. Both are multiplied by `dt`, which is why they have to be large to be noticeable: a value near `0` is water, a few hundred is syrup or honey, and thousands turn the fluid into a near-solid.
+
+![Honey simulation (bottom-left of the four simulations)](images/springsGE.gif)
+
+## Eighth Step: Springs
+
+The last pass adds the elastic part from Clavet et al. 2005. Every pair of particles closer than the interaction radius gets a spring whose rest length starts at `h`, and every spring pulls its two ends towards that rest length. Plasticity lets the rest length follow the actual distance, with a dead zone of `gamma` times the rest length:
+
+```cpp
+float d = Globals::gamma * Lij;
+
+if (rij > Lij + d)
+    spring.restLength += dt * Globals::plasticity * (rij - Lij - d);
+else if (rij < Lij - d)
+    spring.restLength -= dt * Globals::plasticity * (Lij - d - rij);
+```
+
+The springs are then solved by moving each pair towards its rest length:
+
+```cpp
+float displacementTerm = dt * dt * Globals::springStiffness *
+                         (1.0f - spring.restLength / Globals::interatctionRadius) *
+                         (spring.restLength - distance);
+```
+
+`gamma` controls how much drift the spring ignores, `plasticity` how fast it forgets its original length (small keeps the elastic memory, large keeps the deformed shape), and `springStiffness` how hard it corrects. Because the displacement is scaled by `dt * dt`, stiffness has to be in the thousands to be visible at a fixed step of `1/120` s.
+
+![Springs simulation](images/springsGE.gif)
+
 ## Libraries
 
 - [SDL3](https://github.com/libsdl-org/SDL): window creation, rendering, input, and geometry drawing.

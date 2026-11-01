@@ -23,16 +23,16 @@ public:
         _emitters.clear();
 
         const float ppu = Globals::pixelsPerMeter;
-        SDL_FPoint pos1 = {300.0f / ppu, 300.0f / ppu};
+        // SDL_FPoint pos1 = {300.0f / ppu, 300.0f / ppu};
         SDL_FPoint pos2 = {900.0f / ppu, 300.0f / ppu};
-        SDL_FPoint pos3 = {1500.0f / ppu, 300.0f / ppu};
+        // SDL_FPoint pos3 = {1500.0f / ppu, 300.0f / ppu};
         // { position, direction, size, spawnInterval, amount, velocity, timer }
-        ParticleEmitterObject emitter1 = {pos1, {0, -1}, 0.08f, 0.01f, 3, 0.8f, 0.0f};
+        // ParticleEmitterObject emitter1 = {pos1, {0, -1}, 0.08f, 0.01f, 3, 0.8f, 0.0f};
         ParticleEmitterObject emitter2 = {pos2, {0, -1}, 0.08f, 0.01f, 3, 0.8f, 0.0f};
-        ParticleEmitterObject emitter3 = {pos3, {0, -1}, 0.08f, 0.01f, 3, 0.8f, 0.0f};
-        _emitters.push_back(emitter1);
+        // ParticleEmitterObject emitter3 = {pos3, {0, -1}, 0.08f, 0.01f, 3, 0.8f, 0.0f};
+        // _emitters.push_back(emitter1);
         _emitters.push_back(emitter2);
-        _emitters.push_back(emitter3);
+        // _emitters.push_back(emitter3);
     }
 
 private:

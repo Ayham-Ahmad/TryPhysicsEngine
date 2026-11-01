@@ -2,6 +2,7 @@
 #include <vector>
 #include <SDL3/SDL.h>
 #include "particleobject.h"
+#include "Globals.h"
 #include "Perf.h"
 
 class FluidHashGrid
@@ -22,6 +23,7 @@ public:
         bucketFrame = new int[TABLE_SIZE];
         for (size_t i = 0; i < TABLE_SIZE; i++)
             bucketFrame[i] = -1;
+        _neighbours.reserve(128);
     }
 
     ~FluidHashGrid()
@@ -64,6 +66,32 @@ public:
         return cellIndexToHash((int)cellIndex.x, (int)cellIndex.y);
     }
 
+    const std::vector<size_t> &getNeighbourOfParticleIdx(const size_t i)
+    {
+        _neighbours.clear();
+        if (!particles || i >= particles->size())
+            return _neighbours;
+
+        const SDL_FPoint cellIndex = getGridIndexFromPos(particles->at(i).position);
+
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                const uint32_t hash = cellIndexToHash((int)cellIndex.x + x, (int)cellIndex.y + y);
+
+                // skip buckets that were not filled during the current frame
+                if (bucketFrame[hash] != currentFrame)
+                    continue;
+
+                const auto &content = buckets[hash];
+                _neighbours.insert(_neighbours.end(), content.begin(), content.end());
+            }
+        }
+
+        return _neighbours;
+    }
+
     void mapParticleToCell()
     {
         PERF_SCOPE("Grid::mapParticleToCell");
@@ -82,4 +110,16 @@ public:
             buckets[hash].push_back(i);
         }
     }
+
+    void neighbourSearch()
+    {
+        PERF_SCOPE("SPH::neighbourSearch::setup");
+        cellSize = Globals::interatctionRadius;
+
+        clearGrid();
+        mapParticleToCell();
+    }
+
+private:
+    std::vector<size_t> _neighbours;
 };

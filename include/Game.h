@@ -12,7 +12,7 @@
 #include "grid.h"
 #include "graph.h"
 #include "window.h"
-#include "particleEmitter.h"
+#include "emitter.h"
 #include "Perf.h"
 #include "simBox.h"
 #include "parallel.h"

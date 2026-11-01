@@ -68,7 +68,7 @@ void Game::init()
 
     for (int i = 0; i < Globals::simCount; i++)
     {
-        if (Globals::simCount == 1)
+        if (Globals::simCount == 1 && Globals::simBox)
         {
             constexpr int boxWidth = 800;
             constexpr int boxHeight = 600;
@@ -118,6 +118,9 @@ void Game::_applySimulationSettings(int simulationIndex)
     Globals::k = _panel.value("k", simulationIndex);
     Globals::Sigma = _panel.value("sigma", simulationIndex);
     Globals::Beta = _panel.value("beta", simulationIndex);
+    Globals::gamma = _panel.value("gamma", simulationIndex);
+    Globals::plasticity = _panel.value("plasticity", simulationIndex);
+    Globals::springStiffness = _panel.value("spring_stiffness", simulationIndex);
     const float particleRadiusPixels = Globals::particleSize * Globals::pixelsPerMeter;
     Globals::PARTICLE_RESOLUTION = std::clamp(
         static_cast<int>(std::ceil(particleRadiusPixels * 2.0f)),
@@ -220,6 +223,7 @@ void Game::_listener()
     Globals::speedColoring = _panel.buttonValue("speedColoring");
     Globals::emitters = _panel.buttonValue("emitters");
     Globals::random = _panel.buttonValue("random");
+    Globals::simBox = _panel.buttonValue("simBox");
 
     // if (Globals::graph && !_graphWasEnabled)
     // {
@@ -362,10 +366,17 @@ void Game::render()
     }
 
     // Render particles
+    Colors::MediumGray(r);
     for (int i = 0; i < Globals::simCount; i++)
     {
         _applySimulationSettings(i);
         _sims[i].particles.render(r);
+        const SDL_FRect box = {
+            static_cast<float>(_sims[i].box.x),
+            static_cast<float>(_sims[i].box.y),
+            static_cast<float>(_sims[i].box.w),
+            static_cast<float>(_sims[i].box.h)};
+        SDL_RenderRect(r, &box);
     }
 
     // Render panel (capped)

@@ -43,6 +43,7 @@ void Panel::init()
         {"speedColoring", "Speed Colors", true, true},
         {"emitters", "Emitters", false, true},
         {"random", "random", false, true, true},
+        {"simBox", "Sim Box", false, true, true},
     };
 
     _sliders = {
@@ -56,8 +57,11 @@ void Panel::init()
         {"target_density", 0.624, 0.1f, 20.0f, true, false},
         {"kNear", 30.0f, 0.1f, 100.0f, true, false},
         {"k", 49.0f, 0.1f, 200.0f, true, false},
-        {"sigma", 0.01f, 0.0f, 500.0f, true, false},
-        {"beta", 0.01f, 0.0f, 500.0f, true, false},
+        {"sigma", 0.01f, 0.0f, 300.0f, true, false},
+        {"beta", 0.01f, 0.0f, 5.0f, true, false},
+        {"gamma", 0.13f, 0.0f, 1000.0f, true, false},
+        {"plasticity", 100.0f, 0.0f, 1000.0f, true, false},
+        {"spring_stiffness", 20000.0f, 0.0f, 2000000.0f, true, false},
     };
 
     for (auto &s : _sliders)

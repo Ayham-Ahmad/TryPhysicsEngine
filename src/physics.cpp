@@ -1,4 +1,6 @@
 #include "physics.h"
+#include "Perf.h"
+#include "vector2.h"
 
 // Calculate the difference between the positions
 SDL_FPoint Physics2D::differenceVector(const SDL_FPoint &firstPosition, const SDL_FPoint &secondPosition) noexcept
@@ -188,5 +190,122 @@ void Physics2D::checkCollisionBetweenObjs(ParticleObject &sampleParticle, std::v
         // Apply the impulse to the second particle
         p.velocity.x += impulse.x / Globals::particleMass;
         p.velocity.y += impulse.y / Globals::particleMass;
+    }
+}
+
+// Double density relaxation: compute the pressure of every particle from its
+// neighbours, then push/pull both ends of every pair by that pressure.
+void Physics2D::density(const double &simulationDeltaTime)
+{
+    PERF_SCOPE("SPH::density::loop");
+
+    std::vector<ParticleObject> &particles = *_particles;
+    const size_t count = particles.size();
+
+    const float dt2 = static_cast<float>(simulationDeltaTime) * static_cast<float>(simulationDeltaTime);
+
+    for (size_t i = 0; i < count; i++)
+    {
+        float density = 0.0f;
+        float densityNear = 0.0f;
+
+        SDL_FPoint &positionA = particles[i].position;
+
+        // Neighbours gathered once per particle, then reused by both passes
+        const auto &neighbours = _grid->getNeighbourOfParticleIdx(i);
+
+        for (size_t j = 0; j < neighbours.size(); j++)
+        {
+            const size_t neighbourIndex = neighbours[j];
+            if (i == neighbourIndex)
+                continue;
+
+            const SDL_FPoint &positionB = particles[neighbourIndex].position;
+
+            const SDL_FPoint rij = Sub(positionB, positionA);
+            const float q = Length(rij) / Globals::interatctionRadius;
+
+            if (q < 1.0f)
+            {
+                const float iq = 1.0f - q;
+                density += iq * iq;
+                densityNear += iq * iq * iq;
+            }
+        }
+
+        const float pressure = Globals::k * (density - Globals::targetDensity);
+        const float pressureNear = Globals::kNear * densityNear;
+        SDL_FPoint particleADisplacement = Zero();
+
+        for (size_t j = 0; j < neighbours.size(); j++)
+        {
+            const size_t neighbourIndex = neighbours[j];
+            if (i == neighbourIndex)
+                continue;
+
+            SDL_FPoint &positionB = particles[neighbourIndex].position;
+
+            SDL_FPoint rij = Sub(positionB, positionA);
+            const float length = Length(rij);
+            const float q = length / Globals::interatctionRadius;
+
+            if (q < 1.0f && length > 1e-9f)
+            {
+                rij = Normalize(rij);
+                const float iq = 1.0f - q;
+                const float displacementTrem = dt2 * (pressure * iq + pressureNear * iq * iq);
+                const SDL_FPoint D = Scale(rij, displacementTrem);
+
+                positionB = Add(positionB, Scale(D, 0.5f));
+                particleADisplacement = Sub(particleADisplacement, Scale(D, 0.5f));
+            }
+        }
+
+        positionA = Add(positionA, particleADisplacement);
+    }
+}
+
+// Viscosity: damp the relative velocity of particles as they approach.
+void Physics2D::viscosity(const double &simulationDeltaTime)
+{
+    PERF_SCOPE("SPH::viscosity::loop");
+
+    std::vector<ParticleObject> &particles = *_particles;
+    const size_t count = particles.size();
+
+    const float dt = static_cast<float>(simulationDeltaTime);
+
+    for (size_t i = 0; i < count; i++)
+    {
+        ParticleObject &particleA = particles[i];
+        const auto &neighbours = _grid->getNeighbourOfParticleIdx(i);
+
+        for (size_t j = 0; j < neighbours.size(); j++)
+        {
+            const size_t neighbourIndex = neighbours[j];
+            if (i == neighbourIndex)
+                continue;
+
+            ParticleObject &particleB = particles[neighbourIndex];
+
+            SDL_FPoint rij = Sub(particleA.position, particleB.position);
+            const float q = Length(rij) / Globals::interatctionRadius;
+
+            if (q < 1.0f)
+            {
+                rij = Normalize(rij);
+                const float u = Dot(Sub(particleA.velocity, particleB.velocity), rij);
+
+                if (u > 0.0f)
+                {
+                    const float ITerm = dt * (1.0f - q) *
+                                        (Globals::Sigma * u + Globals::Beta * u * u);
+                    const SDL_FPoint I = Scale(rij, ITerm);
+
+                    particleA.velocity = Sub(particleA.velocity, Scale(I, 0.5f));
+                    particleB.velocity = Add(particleB.velocity, Scale(I, 0.5f));
+                }
+            }
+        }
     }
 }
